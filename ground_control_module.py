@@ -17,14 +17,18 @@ import serial
 # ser.isOpen()
 # 
 # input = 1
-print("Enter your purpose: \n\r")
 
-#1. Create an object. Zero for external camera
-video = cv2.VideoCapture(0)
+#1. Create an object. Zero for external camera: actually brings up prompt to select camera. 1 starts webcam (no image)
+video = cv2.VideoCapture(1)
 success = video.isOpened()
 
 if not success:
 	print("Camera open fail")
+
+# camera config - only affects facetime camera
+video.set(cv2.CAP_FFMPEG, True)
+video.set(cv2.CAP_PROP_FPS, 30)
+#video.set(cv2.CAP_PROP_MODE, CV_CAP_MODE_YUYV)
 
 # Global Variables
 font = cv2.FONT_HERSHEY_PLAIN
@@ -38,27 +42,31 @@ xL = int((width - lineLength) / 2)
 xR = int(xL + lineLength)
 xT = int((height - lineLength) / 2)
 xB = int(xT + lineLength)
-
-def manual_steer():
-	print("Steering mode\n")
+# 
+# def manual_steer():
+# 	print("Steering mode\n")
+# 	
+# def calibrate():
+# 	print("Calibration mode")
+# 	
+# def power_cycle():
+# 	print("Power cycling mode")
+# 
+# def save_image():
+# 	print("Capturing image...")
 	
-def calibrate():
-	print("Calibration mode")
-	
-def power_cycle():
-	print("Power cycling mode")
-
-def save_image():
-	print("Capturing image...")
-	
-	
-def mode_select(argument):
-	switcher = {
-		1: manual_steer,
-		2: calibrate,
-		3: power_cycle,
-		4: save_image
-	}
+# 	
+# def mode_select(argument):
+# 	switcher = {
+# 		1: manual_steer,
+# 		2: calibrate,
+# 		3: power_cycle,
+# 		4: save_image
+# 	}
+# 	#get function from switcher dictionary
+# 	func = switcher.get(argument, lamda: "nothing")
+# 	#execute the function
+# 	func()
 
 while video.isOpened():
 	
@@ -90,14 +98,21 @@ while video.isOpened():
 	
 	#6. Converting to grayscale
 	
-	#grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 	
 	#4. Show the frame!! after drawing the lines*
 	cv2.line(img=frame, pt1=(xL, int(height/2)), pt2=(xR, int(height/2)), color=(0, 255, 0), thickness=1, lineType=8, shift=0)
 	cv2.line(img=frame, pt1=(int(width/2), xT), pt2=(int(width/2), xB), color=(0, 255, 0), thickness=1, lineType=8, shift=0)
 	cv2.putText(frame, "width: " +str(width), (10,455), 1, font, (255,255,255))
 	cv2.putText(frame, "height: " + str(height), (10,475), 1, font, (255,255,255))
-	cv2.imshow("Capturing", frame)
+	if check:	
+		cv2.imshow("Capturing", frame)
+		
+		cv2.line(img=grey, pt1=(xL, int(height/2)), pt2=(xR, int(height/2)), color=(0, 255, 0), thickness=1, lineType=8, shift=0)
+		cv2.line(img=grey, pt1=(int(width/2), xT), pt2=(int(width/2), xB), color=(0, 255, 0), thickness=1, lineType=8, shift=0)
+		cv2.putText(grey, "width: " +str(width), (10,455), 1, font, (255,255,255))
+		cv2.putText(grey, "height: " + str(height), (10,475), 1, font, (255,255,255))
+		cv2.imshow("greyscale", grey)
 
 	#5. For press any key to advance frame (milliseconds)
 	#cv2.waitKey(0)
@@ -107,12 +122,13 @@ while video.isOpened():
 	
 	if key == ord('q'):
 		break
-	else:
-		cv2.line(img=frame, pt1=(10, 100), pt2=(20, 10), color=(255,255,0), thickness=5, lineType=8, shift=0)
+	# else:
+	# 	cv2.line(img=frame, pt1=(10, 100), pt2=(20, 10), color=(255,255,0), thickness=5, lineType=8, shift=0)
 	
 print(a)
 
 #2. Shutdown the camera
 video.release()
+print ("ending: " + str(width))
 
 cv2.destroyAllWindows
