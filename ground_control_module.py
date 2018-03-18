@@ -42,31 +42,6 @@ xL = int((width - lineLength) / 2)
 xR = int(xL + lineLength)
 xT = int((height - lineLength) / 2)
 xB = int(xT + lineLength)
-# 
-# def manual_steer():
-# 	print("Steering mode\n")
-# 	
-# def calibrate():
-# 	print("Calibration mode")
-# 	
-# def power_cycle():
-# 	print("Power cycling mode")
-# 
-# def save_image():
-# 	print("Capturing image...")
-	
-# 	
-# def mode_select(argument):
-# 	switcher = {
-# 		1: manual_steer,
-# 		2: calibrate,
-# 		3: power_cycle,
-# 		4: save_image
-# 	}
-# 	#get function from switcher dictionary
-# 	func = switcher.get(argument, lamda: "nothing")
-# 	#execute the function
-# 	func()
 
 while video.isOpened():
 	
@@ -93,8 +68,8 @@ while video.isOpened():
 	
 	print ("width: " + str(width))
 	print ("height: " + str(height))
-	print(check)
-	print(frame) # representing image
+	# print(check)
+	# print(frame) # representing image
 	
 	#6. Converting to grayscale
 	
