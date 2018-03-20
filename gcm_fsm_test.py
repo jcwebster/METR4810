@@ -12,9 +12,13 @@ POWER_CYCLING = 2
 MANUAL = 3
 NAVIGATE_TO = 4
 
+global state
 state = 0
 finished = 0
- 	
+
+opower_state = 0
+ipower_state = 0
+
 def calibrate():
     finished = 0
     print("Calibration mode\n")
@@ -24,34 +28,49 @@ def calibrate():
     
 def power_cycle():
 
-    opower_state # get and set  orientation power state here
-    ipower_state # get and set imaging power state here
-    print("Select a system to power cycle: \n\
-            'p': Power on all subsystems \n\
-            'o': Orientation control \n\
-            'i': Imaging system \n ")
+    opower_state = 0 # get and set  orientation power state here
+    ipower_state = 0 # get and set imaging power state here
+    print("Select a system to power cycle (press 'e' to exit): \n\
+                'p': Power on all subsystems \n\
+                'o': Orientation control \n\
+                'i': Imaging system \n ")
     system_select = raw_input()
 
-    if system_select == 'p':
-        print("All systems will be rebooted now...")
+    while (not(system_select == 'e')):
 
-        print("systems off")
+        if system_select == 'p':
+            print("All systems will be rebooted now...")
 
-        time.sleep(2)
-        print("systems on")
+            print("systems off\n")
+
+            time.sleep(2)
+            print("systems on\n")
+            
+        elif system_select == 'o':
+            print("Toggling power on orientation control system...\n")
+
+            opower_state = int(not opower_state)
+
+        elif system_select == 'i':
+            print("Toggling power on imaging system...\n")
+
+            ipower_state = int(not ipower_state)
+            
+        elif system_select == 'e':
+            state = 'm'
+            return (state)
         
-    elif system_select == 'o':
-        print("Toggling power on orientation control system...")
+        print("Orientation system powered: " + str(opower_state))
+        print("Imaging system powered: " + str(ipower_state) + "\n\n")
 
-        opower_state = not opower_state
+        print("Select a system to power cycle (press 'e' to exit): \n\
+                'p': Power on all subsystems \n\
+                'o': Orientation control \n\
+                'i': Imaging system \n ")
+        system_select = raw_input()
 
-    elif system_select == 'i':
-        print("Toggling power on imaging system...")
-
-        ipower_state = not ipower_state
-
-    print("Orientation system powered: " + opower_state)
-    print("Imaging system powered: " + ipower_state)
+    state = 0
+    return
 
  
 def manual_steer():
@@ -111,13 +130,15 @@ while True:
         time.sleep(1)
         if finished:
             state = MENU
+            print("done")
         #exit if interrupt 'm' is received or finished
     elif state == POWER_CYCLING:
         #enable power cycling
         print("Now in power cycling mode: ")
 
         power_cycle()
-        #exit if interrupt 'm' is received or alternate key
+        #exit if key 'e' is received or alternate key
+        state = int(raw_input())
 
     elif state == MANUAL:
         #enable free steering
