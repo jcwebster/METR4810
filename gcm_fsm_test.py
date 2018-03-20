@@ -12,7 +12,6 @@ POWER_CYCLING = 2
 MANUAL = 3
 NAVIGATE_TO = 4
 
-global state
 state = 0
 finished = 0
 
@@ -20,7 +19,7 @@ opower_state = 0
 ipower_state = 0
 
 def calibrate():
-    finished = 0
+    
     print("Calibration mode\n")
 
     global finished
@@ -43,7 +42,7 @@ def power_cycle():
 
             print("systems off\n")
 
-            time.sleep(2)
+            time.sleep(1)
             print("systems on\n")
             
         elif system_select == 'o':
@@ -63,12 +62,14 @@ def power_cycle():
         print("Orientation system powered: " + str(opower_state))
         print("Imaging system powered: " + str(ipower_state) + "\n\n")
 
+        time.sleep(1)
         print("Select a system to power cycle (press 'e' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
                 'i': Imaging system \n ")
         system_select = raw_input()
 
+    global state
     state = 0
     return
 
@@ -138,7 +139,7 @@ while True:
 
         power_cycle()
         #exit if key 'e' is received or alternate key
-        state = int(raw_input())
+        #state = int(raw_input())
 
     elif state == MANUAL:
         #enable free steering
@@ -152,7 +153,7 @@ while True:
         print("Navigate to...")
 
         time.sleep(1)
-        state = Menu
+        state = MENU
 
         #exit when....
 ##    state = int(raw_input())
