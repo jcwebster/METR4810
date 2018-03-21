@@ -2,7 +2,11 @@
 19 Mar 2018
 ## GCM FSM definition
 '''
-
+'''
+TODO:
+fix Manual steering getch() implementation to increment counter and exit
+'''
+from msvcrt import getch
 import time
 
 #STATES
@@ -13,22 +17,28 @@ MANUAL = 3
 NAVIGATE_TO = 4
 
 state = 0
+
+#calibration variables
 finished = 0
 
+#steering variables
+counter = 0
+
+#power cycle variables
 opower_state = 0
 ipower_state = 0
 
 def calibrate():
-    
     print("Calibration mode\n")
-
+    #calibrate here...
+    
     global finished
     finished = 1
     
 def power_cycle():
 
-    opower_state = 0 # get and set  orientation power state here
-    ipower_state = 0 # get and set imaging power state here
+    opower_state = 0 # get orientation power state here
+    ipower_state = 0 # get imaging power state here
     print("Select a system to power cycle (press 'e' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
@@ -47,17 +57,19 @@ def power_cycle():
             
         elif system_select == 'o':
             print("Toggling power on orientation control system...\n")
-
+            # Set orientation power state here
+            
             opower_state = int(not opower_state)
 
         elif system_select == 'i':
             print("Toggling power on imaging system...\n")
-
+            # Set imaging power state here
+            
             ipower_state = int(not ipower_state)
             
         elif system_select == 'e':
-            state = 'm'
-            return (state)
+            #exit and return to menu
+            return
         
         print("Orientation system powered: " + str(opower_state))
         print("Imaging system powered: " + str(ipower_state) + "\n\n")
@@ -75,14 +87,42 @@ def power_cycle():
 
  
 def manual_steer():
-    print("Steering mode\n")
+    print("Steering mode (press 'm' to return to main menu):\n")
     #how to cycle through and send commands to minimize annoyance of delay?
-    key = raw_input()
+    #key = raw_input()
+    key = ord(getch())
+    print(key)
+        
+    #imagine delay in sending any initial command...
 
-    while (key (not 'm')):
-        key = raw_input()
+    #press a key and for as long as the key is pressed count up...
+    #and display a counter value in degrees on screen: that value will be
+    #the degree increment command that is sent to the telescope
+    while (not (key == 'm')):
+       # key = raw_input()
+        key = ord(getch())
+        print(key)
+        while (raw_input() == key):
+            counter = counter + 1
+            print(str(counter) + '\r')
+        degrees = counter * k #k is some scaling factor to convert counter value to degrees
+        print('Move ' + str(degrees) + '? (y/n to confirm)')
 
-        #control manually
+        decision = 0
+
+        while (not(decision == 'y') or (decision == 'n')):
+            decision = raw_input()
+
+        if (decision == 'y'):
+            #[move]
+            print('Moving ' + str(degrees) + ' degrees...')
+            time.sleep(1)
+            print('done')
+        elif (decision == 'n'):
+            #retry entry
+            print("Send a new move command: ")
+            
+        
     
 def navigate_to():
     print("Navigate to point.....")
