@@ -88,41 +88,72 @@ def power_cycle():
  
 def manual_steer():
     print("Steering mode (press 'm' to return to main menu):\n")
-    #how to cycle through and send commands to minimize annoyance of delay?
-    #key = raw_input()
-    key = ord(getch())
+    key = 0
+    #key = ord(getch())
     print(key)
-        
+
+    angleStep = 10
+    pitch = 0
+    roll = 0
+    yaw = 0
+    
+    done = 0
+
     #imagine delay in sending any initial command...
 
-    #press a key and for as long as the key is pressed count up...
+    #press a key to count up or down, j\k to adjust increment size...
     #and display a counter value in degrees on screen: that value will be
     #the degree increment command that is sent to the telescope
-    while (not (key == 'm')):
-       # key = raw_input()
-        key = ord(getch())
-        print(key)
-        while (raw_input() == key):
-            counter = counter + 1
-            print(str(counter) + '\r')
-        degrees = counter * k #k is some scaling factor to convert counter value to degrees
-        print('Move ' + str(degrees) + '? (y/n to confirm)')
+    while ((not (key == 'm')) or (not done)):
+        key = raw_input()
+       # key = ord(getch())
+        #print(key)
+##        while (raw_input() == key):
+##            counter = counter + 1
+##            print(str(counter) + '\r')
+##        degrees = counter * k #k is some scaling factor to convert counter value to degrees
 
-        decision = 0
+        if (key == 'w'):
+            pitch = pitch + angleStep
+        elif (key == 's'):
+            pitch = pitch - angleStep
+        elif (key == 'd'):
+            yaw = yaw + angleStep
+        elif (key == 'a'):
+            yaw = yaw - angleStep
+        elif (key == 'e'):
+            roll = roll + angleStep
+        elif (key == 'q'):
+            roll = roll - angleStep
+        elif (key == 'j'):         #else change angleStep size
+            angleStep = angleStep / 2
+        elif (key == 'k'):
+            angleStep = angleStep * 2
 
-        while (not(decision == 'y') or (decision == 'n')):
-            decision = raw_input()
+        print("Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
+              + " Roll: " + str(roll) + '\r')
 
-        if (decision == 'y'):
-            #[move]
-            print('Moving ' + str(degrees) + ' degrees...')
-            time.sleep(1)
-            print('done')
-        elif (decision == 'n'):
-            #retry entry
-            print("Send a new move command: ")
+        if (key == ""):
+            print('\nMove ' + "Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
+              + " Roll: " + str(roll) + ' (deltas)? (y/n to confirm)')
+
+            decision = 0
+
+            while (not(decision == 'y') or (decision == 'n')):
+                decision = raw_input()
+
+            if (decision == 'y'):
+                #[code move here]
+                print('Moving ...')
+                time.sleep(1)
+                done = 1
+                print('done')
+                return
+            elif (decision == 'n'):
+                #retry entry
+                print("Send a new move command: ")
+                
             
-        
     
 def navigate_to():
     print("Navigate to point.....")
@@ -185,6 +216,8 @@ while True:
         #enable free steering
         print("Now in manual steering mode")
         manual_steer()
+
+        print("Now exiting manual steering mode")
 
         state = MENU
 
