@@ -21,9 +21,10 @@ print("Computer CP2102 connected to: " + ser1.portstr)
 print("Bluetooth HC06 connected to: " + ser2.portstr)
 count=1
 
-while True:
+while (count<5):
 
-    sendstr = "Test data\n\r"
+    print("enter string to send: ")
+    sendstr = raw_input()
     ser1.writelines(sendstr)
     print("sent string: " + sendstr)
 
@@ -31,4 +32,10 @@ while True:
     line = ser2.readline()
     print("received string: " + line)
     
-ser.close()
+    count = count + 1
+
+print("closing serial ports..")
+ser1.close()
+ser2.close()
+    
+
