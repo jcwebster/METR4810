@@ -1,0 +1,6 @@
+﻿  sertest2.cpp
+c:\metr4810 code\testcproject\sertest2.cpp(74): warning C4996: 'getch': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _getch. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.16299.0\ucrt\conio.h(452): note: see declaration of 'getch'
+c:\metr4810 code\testcproject\sertest2.cpp(89): warning C4996: 'getch': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _getch. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.16299.0\ucrt\conio.h(452): note: see declaration of 'getch'
+  testCproject.vcxproj -> C:\METR4810 code\testCproject\Debug\testCproject.exe

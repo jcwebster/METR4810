@@ -28,6 +28,7 @@ def send_email():
 while True:
     message = ser.readline()
     print(message)
+    
     if message[0] == 'M' :
         #send_email()
         print('sending email')
