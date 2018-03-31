@@ -39,13 +39,13 @@ def power_cycle():
 
     opower_state = 0 # get orientation power state here
     ipower_state = 0 # get imaging power state here
-    print("Select a system to power cycle (press 'e' to exit): \n\
+    print("Select a system to power cycle (press 'm' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
                 'i': Imaging system \n ")
     system_select = raw_input()
 
-    while (not(system_select == 'e')):
+    while (not(system_select == 'm')):
 
         if system_select == 'p':
             print("All systems will be rebooted now...")
@@ -75,7 +75,7 @@ def power_cycle():
         print("Imaging system powered: " + str(ipower_state) + "\n\n")
 
         time.sleep(1)
-        print("Select a system to power cycle (press 'e' to exit): \n\
+        print("Select a system to power cycle (press 'm' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
                 'i': Imaging system \n ")
@@ -104,7 +104,7 @@ def manual_steer():
     #press a key to count up or down, j\k to adjust increment size...
     #and display a counter value in degrees on screen: that value will be
     #the degree increment command that is sent to the telescope
-    while ((not (key == 'm')) or (not done)):
+    while ((not (key == 'm')) and (not done)):
         key = raw_input()
        # key = ord(getch())
         #print(key)
@@ -133,7 +133,7 @@ def manual_steer():
         print("Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
               + " Roll: " + str(roll) + '\r')
 
-        if (key == ""):
+        if (key == ""): 
             print('\nMove ' + "Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
               + " Roll: " + str(roll) + ' (deltas)? (y/n to confirm)')
 

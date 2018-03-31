@@ -6,17 +6,28 @@ import time
 import serial
 
 #configure serial connection
-# ser = serial.Serial(port='/dev/ttyUSB1',
-# 					baudrate=9600,
-# 					parity=serial.PARITY_ODD,
-# 					stopbits=serial.STOPBITS_TWO,
-# 					bytesize=serial.SEVENBITS
-# 					)
-# 
-# ser.open()
-# ser.isOpen()
-# 
-# input = 1
+cp2102_ser = serial.Serial(
+    port='COM3',\
+    baudrate=9600,\
+    parity=serial.PARITY_NONE,\
+    stopbits=serial.STOPBITS_ONE,\
+    bytesize=serial.EIGHTBITS,\
+        timeout=0)              #computer to CP2102 serial port
+
+bt_ser = serial.Serial(
+    port='COM5',\
+    baudrate=9600,\
+    parity=serial.PARITY_NONE,\
+    stopbits=serial.STOPBITS_ONE,\
+    bytesize=serial.EIGHTBITS,\
+        timeout=0)              #Bluetooth to computer serial port connection
+
+if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
+        
+        print("Computer CP2102 connected to: " + ser1.portstr)
+        print("Bluetooth HC06 connected to: " + ser2.portstr)
+else
+        print("Failed to open a serial port")
 
 #1. Create an object. Zero for external camera: actually brings up prompt to select camera. 1 starts webcam (no image)
 video = cv2.VideoCapture(1)
