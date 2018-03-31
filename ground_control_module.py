@@ -48,14 +48,15 @@ a = 0
 '''              FUNCTION DEFINITIONS           '''
 '''*********************************************'''
 
-def send_command(int mode, str command)
+def send_command(mode, command):
         #this function sends a command through the DSN block following protocol, \
         # and then once it receives the command from the DSN block, it transmits \
         # it through the bluetooth serial port
     if (mode == 1): #calibration
         cp2102_ser.writelines(command)
 #CAUTION: need to implement a wait or while loop for reading?
-        while (data_to_send == None)
+        while (data_to_send == None):
+            pass
         data_to_send = cp2102_ser.readline();
 
         #send data that was received 
