@@ -11,6 +11,10 @@
         and decoding of a char
 - need to figure out how to read baud in AT-mode and reset into regular operation
     with saved settings through code
+        - 2.1 booting the HC05 in AT mode with hardware and then sending a serial.write("AT+RESET")
+            to the CP_ser Port after settings are configured SHOULD put the module into pairing mode and
+            the rest just works like clockwork after that.
+            ^ FOR TESTING ONLY...I THINK . this would actually have to happen on board
 '''
 
 from __future__ import print_function
@@ -255,7 +259,9 @@ cp2102_ser = serial.Serial(
     bytesize=serial.EIGHTBITS,\
         timeout=0)              #computer to CP2102 serial port, used for interfacing with the DSN block 10sec delay
 
-bt_ser = serial.Serial(
+#may need to initialize settings in AT mode here (see todo 2.1 and then send AT+RESET
+#to enter pairing mode... or would this algorithm be used on board...
+bt_ser = serial.Serial( #used for testing right now
     port='COM7',\
     baudrate=2400,\
     parity=serial.PARITY_NONE,\
