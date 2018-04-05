@@ -1,23 +1,27 @@
 ##NETR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
-##30 Mar 2018
+##30 Mar 2018. Last rev: 050418
 ##Author: John Webster
 
 '''TODO:
-- test 'send-command' fnction 
+- test 'send-command' fnction
+    -need to use second usb-ttl adapter so that one can be used with the tx-rx shunt
+        and the other connected to HC05/6 (pick oneeee) so that a command will be
+        mirrored in the cp_ser_port and send to the bluetooth comport to test reception
+        and decoding of a char
+- need to figure out how to read baud in AT-mode and reset into regular operation
+    with saved settings through code
 '''
 
-
-'''*********************************************'''        
-'''              IMPORTS                        '''
-'''*********************************************'''
 from __future__ import print_function
 import os
 ##import numpy as np
 ##import cv2
 import time
 import serial
-
+'''*********************************************'''        
+'''              ^IMPORTS^                      '''
+'''*********************************************'''
 
 '''*********************************************'''        
 '''              VARIABLE DECLARTIONS           '''
@@ -28,6 +32,7 @@ CALIBRATION = 1
 POWER_CYCLING = 2
 MANUAL = 3
 NAVIGATE_TO = 4
+SHUTDOWN = 5
 
 state = 0
 
@@ -41,26 +46,25 @@ counter = 0
 opower_state = 0
 ipower_state = 0
 
-
-a = 0
-
 '''*********************************************'''        
 '''              FUNCTION DEFINITIONS           '''
 '''*********************************************'''
-
+#this function sends a command through the DSN block following protocol, \
+# and then once it receives the command from the DSN block, it transmits \
+# it through the bluetooth serial port
 def send_command(mode, command):
-        #this function sends a command through the DSN block following protocol, \
-        # and then once it receives the command from the DSN block, it transmits \
-        # it through the bluetooth serial port
-    if (mode == 1): #calibration
+
+    if (mode == CALIBRATION): #might need 'global' here?
         cp2102_ser.writelines(command)
+        data_to_send = None
 #CAUTION: need to implement a wait or while loop for reading?
         while (data_to_send == None):
-            pass
-        data_to_send = cp2102_ser.readline();
+            #pass
+            data_to_send = cp2102_ser.readline()
 
-        #send data that was received 
-        bt_ser.writeline(data_to_send)
+        #send data that was received
+        print("Data received, sending...")
+        bt_ser.writelines(data_to_send)
         
 '''
     elif (mode == 2):
@@ -76,6 +80,11 @@ def send_command(mode, command):
 def calibrate():
     print("Calibration mode\n")
     #calibrate here...
+
+    print("Enter a char to send: \n")
+    char_to_send = raw_input()
+
+    send_command(CALIBRATION, char_to_send)
     
     global finished
     finished = 1
@@ -211,13 +220,13 @@ def navigate_to():
     
     done = 0
 
-    while (not (key == 'm'))
+    while (not (key == 'm')):
         print("Enter angle of right ascension: ")
         ra = raw_input()
         print("Enter angle of declination")
         dec = raw_input()
 
-        if (ra == 'm' or dec = 'm')
+        if (ra == 'm' or dec == 'm'):
                 break
         
 
@@ -227,7 +236,8 @@ def save_image():
     print("Capturing image...\n")
 
     #wait for and receive iamge save ACKnowledgement
-    while (not bt_ser.readline())
+    while (not bt_ser.readline()):
+        pass
     
     print("Mission successful = " + bt_ser.readline())
     
@@ -236,8 +246,9 @@ def save_image():
 '''              INITIALISATIONS                '''
 '''*********************************************'''
 #configure serial connection
+#consider replacing COM3 with a str variable \
 cp2102_ser = serial.Serial(
-    port='COM3',\ #consider replacing COM3 with a str variable
+    port='COM3',\
     baudrate=9600,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
@@ -245,8 +256,8 @@ cp2102_ser = serial.Serial(
         timeout=0)              #computer to CP2102 serial port, used for interfacing with the DSN block 10sec delay
 
 bt_ser = serial.Serial(
-    port='COM5',\
-    baudrate=9600,\
+    port='COM7',\
+    baudrate=2400,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
     bytesize=serial.EIGHTBITS,\
@@ -254,9 +265,9 @@ bt_ser = serial.Serial(
 
 if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
         
-    print("Computer CP2102 connected to: " + ser1.portstr)
-    print("Bluetooth HC06 connected to: " + ser2.portstr)
-else
+    print("Computer CP2102 connected to: " + cp2102_ser.portstr)
+    print("Bluetooth HC05 connected to: " + bt_ser.portstr)
+else:
     print("Failed to open a serial port")
 
 
@@ -277,16 +288,20 @@ while True:
                 1. Calibration \n\
                 2. Subsystem power management \n\
                 3. Manual free steering \n\
-                4. Navigate to point")
+                4. Navigate to point \n\
+                5. Shutdown")
+
         state = int(raw_input())
-        
-        
+    
     elif state == CALIBRATION:
         #enter Calibration mode
         print("Now in calibration mode: ")
         calibrate()
 
         time.sleep(1)
+
+        data = bt_ser.readline()
+        print("data received from bluetooth: " + data)
         if finished:
             state = MENU
             print("done")
@@ -316,3 +331,8 @@ while True:
         state = MENU
 
         #exit when....
+    elif state == SHUTDOWN:
+        break
+print("closing serial ports..")
+cp2102_ser.close()
+bt_ser.close()
