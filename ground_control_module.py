@@ -40,6 +40,10 @@ SHUTDOWN = 5
 
 state = 0
 
+#communication variables
+COMS_BAUD = 1200
+bt_device = "HC06"
+
 #calibration variables
 finished = 0
 
@@ -251,9 +255,10 @@ def save_image():
 '''*********************************************'''
 #configure serial connection
 #consider replacing COM3 with a str variable \
+
 cp2102_ser = serial.Serial(
     port='COM3',\
-    baudrate=9600,\
+    baudrate=COMS_BAUD,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
     bytesize=serial.EIGHTBITS,\
@@ -262,8 +267,8 @@ cp2102_ser = serial.Serial(
 #may need to initialize settings in AT mode here (see todo 2.1 and then send AT+RESET
 #to enter pairing mode... or would this algorithm be used on board...
 bt_ser = serial.Serial( #used for testing right now
-    port='COM7',\
-    baudrate=2400,\
+    port='COM5',\
+    baudrate=COMS_BAUD,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
     bytesize=serial.EIGHTBITS,\
@@ -272,7 +277,7 @@ bt_ser = serial.Serial( #used for testing right now
 if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
         
     print("Computer CP2102 connected to: " + cp2102_ser.portstr)
-    print("Bluetooth HC05 connected to: " + bt_ser.portstr)
+    print("Bluetooth " + bt_device + " connected to: " + bt_ser.portstr)
 else:
     print("Failed to open a serial port")
 
