@@ -14,6 +14,11 @@
             serial.write("AT+RESET")to the hc06 module on board after settings are
             configured SHOULD put the module into pairing mode and
             it should work as configured after that.
+- implement send_command() for all modes of operation
+    - calibration
+    - manual
+    - navigate to
+    - figure out how to send a list to a funcfion
 '''
 
 from __future__ import print_function
@@ -36,6 +41,7 @@ bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
 WAITING_TIME = 1  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
+DSN_DELAY = 2
 
 #STATES
 MENU = 0
@@ -63,7 +69,7 @@ ipower_state = 0
 #this function sends a command through the DSN block following protocol, \
 # and then once it receives the command from the DSN block, it transmits \
 # it through the bluetooth serial port
-def send_command(mode, command):
+def send_command(mode, command, **coords):
     if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 
         if (mode == CALIBRATION or mode == POWER_CYCLING): 
@@ -72,7 +78,7 @@ def send_command(mode, command):
             
     #CAUTION: need to implement a wait or while loop for reading?
             print("waiting...")
-            time.sleep(10) #could remove
+            time.sleep(DSN_DELAY) #could remove
             
             #Need to test this more thoroughly
             while (data_to_send == None):
@@ -80,7 +86,7 @@ def send_command(mode, command):
                 data_to_send = cp2102_ser.readline()
 
             #send data that was received
-            print("Data received from DSN, sending...")
+            print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
             return 1
         
@@ -88,11 +94,13 @@ def send_command(mode, command):
             
             return 1
         elif (mode == MANUAL):
-
+            print (coords['p'] + " " + coords['y'] + coords['r'])
+            print("printed mylist..")
             return 1
         else:
             return -1
     else:
+        print("error opening a serial port")
         return -1
 
 
@@ -238,11 +246,22 @@ def manual_steer():
                 decision = raw_input()
 
             if (decision == 'y'):
-                #[code move here]
-                print('Moving ...')
-                time.sleep(1)
-                done = 1
-                print('done')
+                coords = [pitch, yaw, roll]
+                if (send_command(MANUAL, p=pitch, y=yaw, r=roll) == -1): #CAUTION: NEED TO MAKE A LIST AND SEND
+                    print("error\n")
+                
+                time.sleep(WAITING_TIME)
+                state_received = None
+                while (state_received == None):
+                    state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
+                    success = bt_ser.readline()         # then send SUCCESS ACK
+
+                if (success == SUCCESS_ACK):
+                    print('Moving ...')
+                    done = 1
+                    print('done')
+                else:
+                    print("Failed to send move command")
                 return
             elif (decision == 'n'):
                 #retry entry
