@@ -4,6 +4,7 @@
 ##Author: John Webster
 
 '''TODO:
+- NOTE: bluetooth com connection with HC06 only works every second time
 - test 'send-command' fnction
     -need to use second usb-ttl adapter so that one can be used with the tx-rx shunt
         and the other connected to HC05/6 (pick oneeee) so that a command will be
@@ -11,10 +12,14 @@
         and decoding of a char
 - need to figure out how to read baud in AT-mode and reset into regular operation
     with saved settings through code
-        - 2.1 booting the HC05 in AT mode with hardware and then sending a serial.write("AT+RESET")
-            to the CP_ser Port after settings are configured SHOULD put the module into pairing mode and
+        - 2.1 booting the HC05 in AT mode with hardware and then sending a
+            serial.write("AT+RESET")to the CP_ser Port after settings are
+            configured SHOULD put the module into pairing mode and
             the rest just works like clockwork after that.
-            ^ FOR TESTING ONLY...I THINK . this would actually have to happen on board
+            ^ FOR TESTING ONLY...I THINK . this would actually have to
+                happen on board
+- write code for configuring BT in AT mode ( open and close the port
+    then send at commands through the serial port)
 '''
 
 from __future__ import print_function
@@ -30,6 +35,12 @@ import serial
 '''*********************************************'''        
 '''              VARIABLE DECLARTIONS           '''
 '''*********************************************'''
+#communication variables
+COMS_BAUD = 1200
+usbTTL_COM = 'COM3'
+bluetooth_COM = 'COM5'
+bt_device = "HC06"
+
 #STATES
 MENU = 0
 CALIBRATION = 1
@@ -39,10 +50,6 @@ NAVIGATE_TO = 4
 SHUTDOWN = 5
 
 state = 0
-
-#communication variables
-COMS_BAUD = 1200
-bt_device = "HC06"
 
 #calibration variables
 finished = 0
@@ -62,10 +69,11 @@ ipower_state = 0
 # it through the bluetooth serial port
 def send_command(mode, command):
 
-    if (mode == CALIBRATION): #might need 'global' here?
+    if (mode == CALIBRATION): 
         cp2102_ser.writelines(command)
         data_to_send = None
-#CAUTION: need to implement a wait or while loop for reading?
+        
+#CAUTION: need to implement a wait or while loop for reading? Need to test this more thoroughly
         while (data_to_send == None):
             #pass
             data_to_send = cp2102_ser.readline()
@@ -73,7 +81,9 @@ def send_command(mode, command):
         #send data that was received
         print("Data received, sending...")
         bt_ser.writelines(data_to_send)
-        
+        return 1
+    return -1
+    
 '''
     elif (mode == 2):
     
@@ -92,10 +102,11 @@ def calibrate():
     print("Enter a char to send: \n")
     char_to_send = raw_input()
 
-    send_command(CALIBRATION, char_to_send)
-    
-    global finished
-    finished = 1
+    if (send_command(CALIBRATION, char_to_send)):
+        global finished
+        finished = 1
+    else:
+        return print("Error in sending command")
     
 def power_cycle():
 
@@ -257,7 +268,7 @@ def save_image():
 #consider replacing COM3 with a str variable \
 
 cp2102_ser = serial.Serial(
-    port='COM3',\
+    port=usbTTL_COM,\
     baudrate=COMS_BAUD,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
@@ -267,7 +278,7 @@ cp2102_ser = serial.Serial(
 #may need to initialize settings in AT mode here (see todo 2.1 and then send AT+RESET
 #to enter pairing mode... or would this algorithm be used on board...
 bt_ser = serial.Serial( #used for testing right now
-    port='COM5',\
+    port=bluetooth_COM,\
     baudrate=COMS_BAUD,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
@@ -281,7 +292,21 @@ if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 else:
     print("Failed to open a serial port")
 
-
+###the code to configure settings would have to be on the micro on board (@Andy)
+##if (bt_device == "HC06"):
+##    cp2102_ser.writelines("AT")
+##    if (cp2102_ser.readlines("OK")):
+##        #proceed with next step of configuration
+##        cp2102_ser.writelines("AT+NAME=METR4810\r\n")
+##    else:
+##        #check again
+##        cp2102_ser.writelines("AT")
+##        if (cp2102_ser.readlines("OK"):
+##        #proceed with next step of configuration
+##
+##        else:
+##            print("error, can't connect to " + bt_device)
+##            
 
 '''*********************************************'''        
 '''              MAIN EXECUTIVE                 '''
