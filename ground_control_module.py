@@ -1,25 +1,19 @@
 ##NETR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
-##30 Mar 2018. Last rev: 050418
+##30 Mar 2018. Last rev: 060418
 ##Author: John Webster
 
 '''TODO:
 - NOTE: bluetooth com connection with HC06 only works every second time
-- test 'send-command' fnction
+- test 'send-command' fnction - work with Andy for the "@andy" comments
     -need to use second usb-ttl adapter so that one can be used with the tx-rx shunt
         and the other connected to HC05/6 (pick oneeee) so that a command will be
         mirrored in the cp_ser_port and send to the bluetooth comport to test reception
         and decoding of a char
-- need to figure out how to read baud in AT-mode and reset into regular operation
-    with saved settings through code
-        - 2.1 booting the HC05 in AT mode with hardware and then sending a
-            serial.write("AT+RESET")to the CP_ser Port after settings are
+- note for @andy 2: booting the HC05 in AT mode with hardware and then sending a
+            serial.write("AT+RESET")to the hc06 module on board after settings are
             configured SHOULD put the module into pairing mode and
-            the rest just works like clockwork after that.
-            ^ FOR TESTING ONLY...I THINK . this would actually have to
-                happen on board
-- write code for configuring BT in AT mode ( open and close the port
-    then send at commands through the serial port)
+            it should work as configured after that.
 '''
 
 from __future__ import print_function
@@ -40,6 +34,8 @@ COMS_BAUD = 1200
 usbTTL_COM = 'COM3'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
+SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
+WAITING_TIME = 1  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
 
 #STATES
 MENU = 0
@@ -68,32 +64,37 @@ ipower_state = 0
 # and then once it receives the command from the DSN block, it transmits \
 # it through the bluetooth serial port
 def send_command(mode, command):
+    if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 
-    if (mode == CALIBRATION): 
-        cp2102_ser.writelines(command)
-        data_to_send = None
-        
-#CAUTION: need to implement a wait or while loop for reading? Need to test this more thoroughly
-        while (data_to_send == None):
-            #pass
-            data_to_send = cp2102_ser.readline()
-
-        #send data that was received
-        print("Data received, sending...")
-        bt_ser.writelines(data_to_send)
-        return 1
-    return -1
-    
-'''
-    elif (mode == 2):
-    
-    elif (mode == 3):
+        if (mode == CALIBRATION or mode == POWER_CYCLING): 
+            cp2102_ser.writelines(command)
+            data_to_send = None
             
-    elif (mode == 4):
+    #CAUTION: need to implement a wait or while loop for reading?
+            print("waiting...")
+            time.sleep(10) #could remove
+            
+            #Need to test this more thoroughly
+            while (data_to_send == None):
+                #pass
+                data_to_send = cp2102_ser.readline()
 
+            #send data that was received
+            print("Data received from DSN, sending...")
+            bt_ser.writelines(data_to_send)
+            return 1
+        
+        elif (mode == NAVIGATE_TO):
+            
+            return 1
+        elif (mode == MANUAL):
+
+            return 1
+        else:
+            return -1
     else:
-        break
-'''
+        return -1
+
 
 def calibrate():
     print("Calibration mode\n")
@@ -122,32 +123,53 @@ def power_cycle():
 
         if system_select == 'p':
             print("All systems will be rebooted now...")
+            if (send_command(POWER_CYCLING, system_select) == -1):
+                print("error\n")
 
-            print("systems off\n")
-
-            time.sleep(1)
-            print("systems on\n")
+            time.sleep(WAITING_TIME)
+            if (bt_ser.readline() == SUCCESS_ACK):
+                print("All subsystems power cycled, success\n")
+            else:
+                print("Incorrect message received from bluetooth")
             
         elif system_select == 'o':
             print("Toggling power on orientation control system...\n")
-            # Set orientation power state here
-            
-            opower_state = int(not opower_state)
+
+            if (send_command(POWER_CYCLING, system_select) == -1):
+                print("error\n")
+
+            time.sleep(WAITING_TIME)
+            state_received = None
+            while (state_received == None):
+                state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
+                success = bt_ser.readline()         # then send SUCCESS ACK
+
+            if (success == SUCCESS_ACK):
+                opower_state = state_received
+            else:
+                print("Incorrect message received from bluetooth")
 
         elif system_select == 'i':
             print("Toggling power on imaging system...\n")
-            # Set imaging power state here
-            
-            ipower_state = int(not ipower_state)
-            
-        elif system_select == 'e':
-            #exit and return to menu
-            return
-        
-        print("Orientation system powered: " + str(opower_state))
-        print("Imaging system powered: " + str(ipower_state) + "\n\n")
 
-        time.sleep(1)
+            if (send_command(POWER_CYCLING, system_select) == -1):
+                print("error\n")
+
+            time.sleep(WAITING_TIME)
+            state_received = None
+            while (state_received == None):
+                state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
+                success = bt_ser.readline()         # then send SUCCESS ACK
+
+            if (success == SUCCESS_ACK):
+                ipower_state = state_received
+            else:
+                print("Incorrect message received from bluetooth")            
+        
+        print("Orientation system powered? = " + str(opower_state))
+        print("Imaging system powered? = " + str(ipower_state) + "\n\n")
+
+##        time.sleep(1)
         print("Select a system to power cycle (press 'm' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
