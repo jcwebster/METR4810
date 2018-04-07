@@ -4,7 +4,7 @@
 ##Author: John Webster
 
 '''TODO:
-- NOTE: bluetooth com connection with HC06 only works every second time
+- NOTE: bluetooth com connection with HC06 doesn't always work right after a break in program
 - test 'send-command' fnction - work with Andy for the "@andy" comments
     -need to use second usb-ttl adapter so that one can be used with the tx-rx shunt
         and the other connected to HC05/6 (pick oneeee) so that a command will be
@@ -18,7 +18,10 @@
     - calibration
     - manual
     - navigate to
-    - figure out how to send a list to a funcfion
+- def xyz_to_orbital(xyz, orbital)
+- ask paul and tutor what coordinates we will be given; ask also when we are allowed to establish our wireless connections (on ground or after launch)
+    - figure out how to calculate angle of declin/RA if necessary
+- need to develop calibration algorithm with andy
 '''
 
 from __future__ import print_function
@@ -27,6 +30,7 @@ import os
 ##import cv2
 import time
 import serial
+
 '''*********************************************'''        
 '''              ^IMPORTS^                      '''
 '''*********************************************'''
@@ -69,7 +73,7 @@ ipower_state = 0
 #this function sends a command through the DSN block following protocol, \
 # and then once it receives the command from the DSN block, it transmits \
 # it through the bluetooth serial port
-def send_command(mode, command, **coords):
+def send_command(mode, command):
     if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 
         if (mode == CALIBRATION or mode == POWER_CYCLING): 
@@ -94,10 +98,27 @@ def send_command(mode, command, **coords):
             
             return 1
         elif (mode == MANUAL):
-            print (coords['p'] + " " + coords['y'] + coords['r'])
-            print("printed mylist..")
+            print(str(command[0]) + str(command[1]) + str(command[2]))
+            print("Sending command/coords[]..")
+    #CAUTION: format coordinate command correctly here before writing...
+            cp2102_ser.writelines(command[0] + command[1])
+            data_to_send = None
+            
+    #CAUTION: need to implement a wait or while loop for reading?
+            print("waiting...")
+            time.sleep(DSN_DELAY) #could remove
+            
+            #Need to test this more thoroughly
+            while (data_to_send == None):
+                data_to_send = cp2102_ser.readline()
+
+            #send data that was received
+            print(data_to_send + " received from DSN, sending...")
+            bt_ser.writelines(data_to_send)
+            
             return 1
         else:
+            print("Invalid mode")
             return -1
     else:
         print("error opening a serial port")
@@ -107,7 +128,7 @@ def send_command(mode, command, **coords):
 def calibrate():
     print("Calibration mode\n")
     #calibrate here...
-
+##CAUTION: need to develop calibration algorithm
     print("Enter a char to send: \n")
     char_to_send = raw_input()
 
@@ -205,8 +226,6 @@ def manual_steer():
     #imagine delay in sending any initial command...
 
     #press a key to count up or down, j\k to adjust increment size...
-    #and display a counter value in degrees on screen: that value will be
-    #the degree increment command that is sent to the telescope
     while ((not (key == 'm')) and (not done)):
         key = raw_input()
        # key = ord(getch())
@@ -247,7 +266,9 @@ def manual_steer():
 
             if (decision == 'y'):
                 coords = [pitch, yaw, roll]
-                if (send_command(MANUAL, p=pitch, y=yaw, r=roll) == -1): #CAUTION: NEED TO MAKE A LIST AND SEND
+##CAUTION: need to implement xyz_to_Orbital function here on coords
+                ## and send orbital coords
+                if (send_command(MANUAL, coords) == -1): 
                     print("error\n")
                 
                 time.sleep(WAITING_TIME)
