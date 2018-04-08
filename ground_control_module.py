@@ -16,12 +16,10 @@
             it should work as configured after that.
 - implement send_command() for all modes of operation
     - calibration
-    - manual
+    - manual - change xyz entry to angle of declin. and ra
     - navigate to
-- def xyz_to_orbital(xyz, orbital)
-- ask paul and tutor what coordinates we will be given; ask also when we are allowed to establish our wireless connections (on ground or after launch)
-    - figure out how to calculate angle of declin/RA if necessary
 - need to develop calibration algorithm with andy
+- need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
 '''
 
 from __future__ import print_function
@@ -40,11 +38,11 @@ import serial
 '''*********************************************'''
 #communication variables
 COMS_BAUD = 1200
-usbTTL_COM = 'COM3'
+usbTTL_COM = 'COM9'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
-WAITING_TIME = 1  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
+WAITING_TIME = 5  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
 DSN_DELAY = 2
 
 #STATES
@@ -54,6 +52,7 @@ POWER_CYCLING = 2
 MANUAL = 3
 NAVIGATE_TO = 4
 SHUTDOWN = 5
+SAVE = 6
 
 state = 0
 
@@ -76,22 +75,22 @@ ipower_state = 0
 def send_command(mode, command):
     if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 
-        if (mode == CALIBRATION or mode == POWER_CYCLING): 
+        if (mode == CALIBRATION or mode == POWER_CYCLING or mode == SAVE): 
             cp2102_ser.writelines(command)
             data_to_send = None
             
-    #CAUTION: need to implement a wait or while loop for reading?
             print("waiting...")
-            time.sleep(DSN_DELAY) #could remove
-            
-            #Need to test this more thoroughly
-            while (data_to_send == None):
-                #pass
-                data_to_send = cp2102_ser.readline()
+            time.sleep(DSN_DELAY) 
+            data_to_send = cp2102_ser.readline()
+##            #Need to test this more thoroughly
+##            while (data_to_send == None):
+##                #pass
+##                data_to_send = cp2102_ser.readline()
 
             #send data that was received
             print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
+            time.sleep(1)
             return 1
         
         elif (mode == NAVIGATE_TO):
@@ -101,7 +100,7 @@ def send_command(mode, command):
             print(str(command[0]) + str(command[1]) + str(command[2]))
             print("Sending command/coords[]..")
     #CAUTION: format coordinate command correctly here before writing...
-            cp2102_ser.writelines(command[0] + command[1])
+            cp2102_ser.writelines(str(command[0]) + str(command[1]))
             data_to_send = None
             
     #CAUTION: need to implement a wait or while loop for reading?
@@ -156,7 +155,17 @@ def power_cycle():
                 print("error\n")
 
             time.sleep(WAITING_TIME)
-            if (bt_ser.readline() == SUCCESS_ACK):
+##            if (bt_ser.readline() == SUCCESS_ACK):
+            received_data = None
+            a=0
+            while (received_data == None and a < 999999):
+                received_data = bt_ser.readline()       #CAUTION: NEED TO FIGURE OUT WHY THIS ISN'T WORKING
+                a = a + 1
+
+            print(a)
+            print( "received data: " + str(received_data))
+
+            if (received_data == system_select): #for testing CAUTION swap back to SUCCESS_ACK above once working
                 print("All subsystems power cycled, success\n")
             else:
                 print("Incorrect message received from bluetooth")
@@ -234,7 +243,7 @@ def manual_steer():
 ##            counter = counter + 1
 ##            print(str(counter) + '\r')
 ##        degrees = counter * k #k is some scaling factor to convert counter value to degrees
-
+       
         if (key == 'w'):
             pitch = pitch + angleStep
         elif (key == 's'):
@@ -288,7 +297,6 @@ def manual_steer():
                 #retry entry
                 print("Send a new move command: ")
                 
-            
     
 def navigate_to():
     print("Navigate to point.....\n(press 'm' to return to main menu):\n")
@@ -309,11 +317,15 @@ def navigate_to():
 
         if (ra == 'm' or dec == 'm'):
                 break
-        
+        else:
+            ##format into coords to send here
+            destination = [int(ra), int(dec)]  
+            ##send
+            send_command(NAVIGATE_TO, destination)
 
     
 def save_image():
-    bt_ser.write('x')
+    send_command(SAVE, 'x')
     print("Capturing image...\n")
 
     #wait for and receive iamge save ACKnowledgement
@@ -348,9 +360,9 @@ bt_ser = serial.Serial( #used for testing right now
         timeout=0)              #Bluetooth to computer serial port connection, used to transmit and receieve commands from the telescope
 
 if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
-        
-    print("Computer CP2102 connected to: " + cp2102_ser.portstr)
-    print("Bluetooth " + bt_device + " connected to: " + bt_ser.portstr)
+                
+    print("Computer CP2102 connected to: " + cp2102_ser.portstr + ", baudrate: " + str(cp2102_ser.baudrate))
+    print("Bluetooth " + bt_device + " connected to: " + bt_ser.portstr + ", baudrate: " + str(bt_ser.baudrate))
 else:
     print("Failed to open a serial port")
 
