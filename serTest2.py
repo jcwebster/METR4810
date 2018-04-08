@@ -19,7 +19,7 @@ def send_command(mode, command):
         #send data that was received 
         bt_ser.writeline(data_to_send)
 cp2102_ser = serial.Serial(
-    port='COM3',\
+    port='COM9',\
     baudrate=9600,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
@@ -45,6 +45,9 @@ while (count<5):
     cp2102_ser.writelines(sendstr)
     print("sent string: " + sendstr)
 
+    readstr = cp2102_ser.readline()
+    print("received on mirrored cp2102: " + str(readstr))
+    
     time.sleep(10)
     line = bt_ser.readline()
     print("received string: " + line)
