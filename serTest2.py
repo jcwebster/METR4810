@@ -4,6 +4,9 @@ import time
 
  #create a test for send_commmand
 '''
+
+bt_device = "HC06"
+'''
 def send_command(mode, command):
         #this function sends a command through the DSN block following protocol, \
         # and then once it receives the command from the DSN block, it transmits \
@@ -18,6 +21,7 @@ def send_command(mode, command):
 
         #send data that was received 
         bt_ser.writeline(data_to_send)
+        '''
 cp2102_ser = serial.Serial(
     port='COM9',\
     baudrate=9600,\
@@ -34,8 +38,9 @@ bt_ser = serial.Serial(
     bytesize=serial.EIGHTBITS,\
         timeout=0)
 
-print("Computer CP2102 connected to: " + cp2102_ser.portstr)
-print("Bluetooth HC06 connected to: " + bt_ser.portstr)
+
+print("Computer CP2102 connected to: " + cp2102_ser.portstr + ", baudrate: " + str(cp2102_ser.baudrate))
+print("Bluetooth " + bt_device + " connected to: " + bt_ser.portstr + ", baudrate: " + str(bt_ser.baudrate))
 count=1
 
 while (count<5):
@@ -45,10 +50,11 @@ while (count<5):
     cp2102_ser.writelines(sendstr)
     print("sent string: " + sendstr)
 
+    time.sleep(10)
     readstr = cp2102_ser.readline()
     print("received on mirrored cp2102: " + str(readstr))
     
-    time.sleep(10)
+    time.sleep(5)
     line = bt_ser.readline()
     print("received string: " + line)
     
