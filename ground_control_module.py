@@ -5,21 +5,19 @@
 
 '''TODO:
 - NOTE: bluetooth com connection with HC06 doesn't always work right after a break in program
-- test 'send-command' fnction - work with Andy for the "@andy" comments
-    -need to use second usb-ttl adapter so that one can be used with the tx-rx shunt
-        and the other connected to HC05/6 (pick oneeee) so that a command will be
-        mirrored in the cp_ser_port and send to the bluetooth comport to test reception
-        and decoding of a char
+-test 'send-command' fnction - work with Andy for the "@andy" comments
 - note for @andy 2: booting the HC05 in AT mode with hardware and then sending a
             serial.write("AT+RESET")to the hc06 module on board after settings are
             configured SHOULD put the module into pairing mode and
             it should work as configured after that.
 - implement send_command() for all modes of operation
     - calibration
-    - manual - change xyz entry to angle of declin. and ra
-    - navigate to
+  B.  - manual - change xyz entry to angle of declin. and ra
+  C.  - navigate to
 - need to develop calibration algorithm with andy
-- need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
+- A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
+- D. implement testing code that runs only if testing == 1;
+    - use for sending fake BT responses
 '''
 
 from __future__ import print_function
@@ -34,8 +32,13 @@ import serial
 '''*********************************************'''
 
 '''*********************************************'''        
-'''              VARIABLE DECLARTIONS           '''
+'''              VARIABLE DECLARaTIONS           '''
 '''*********************************************'''
+#testing variables:
+TESTING = 1
+bluetoothRX_Testing = 'COM3'
+
+
 #communication variables
 COMS_BAUD = 1200
 usbTTL_COM = 'COM9'
