@@ -10,6 +10,7 @@
             serial.write("AT+RESET")to the hc06 module on board after settings are
             configured SHOULD put the module into pairing mode and
             it should work as configured after that.
+    note3 Andy: always send success_ACK first if command was successful, then data
 - implement send_command() for all modes of operation
     - calibration
   B.  - manual - change xyz entry to angle of declin. and ra
@@ -47,6 +48,7 @@ bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
 WAITING_TIME = 5  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
 DSN_DELAY = 2
+WAITING_TIMEOUT = 9999
 
 #STATES
 MENU = 0
@@ -122,11 +124,45 @@ def send_command(mode, command):
         else:
             print("Invalid mode")
             return -1
+
+        if (TESTING):
+            telescope_sim_response(mode)
+            print( "**SIMULATING SCOPE RESPONSE**")
     else:
         print("error opening a serial port")
         return -1
+    
+#THIS FUNCTION SIMULATES A RESPONSE FROM THE TELESCOPE
+def telescope_sim_response(mode, system_select = 0):
+    if ((telescope.isOpen()) and (bt_ser.isOpen())):
+        rx_data = telescope.readline()
+        print("telescope received: " + str(rx_data))
 
+        #send response from telescope
+        telescope.writelines(str(SUCCESS_ACK))
+        print("sent ack")
+        
+        if (mode == CALIBRATION):
 
+        elif mode == POWER_CYCLING:
+            global opower_state
+            global ipower_state
+            if system_select == 'p':
+                telescope.writelines(str(1))
+            elif system_select == 'o':
+                opower_state = not opower_state
+                telescope.writelines(str(opower_state))
+            elif system_select == 'i':
+                ipower_state = not ipower_state
+                telescope.writelines(str(ipower_state))
+    
+        elif mode == MANUAL:
+
+        elif mode == NAVIGATE_TO:
+##        telescope.writelines(str(rx_data))
+##        print("sent rx_data")
+
+#THIS FUNCTION IS USED FOR CALIBRATING THE TELESCOPE'S ORIENTATION SYSTEM
 def calibrate():
     print("Calibration mode\n")
     #calibrate here...
@@ -139,11 +175,11 @@ def calibrate():
         finished = 1
     else:
         return print("Error in sending command")
-    
-def power_cycle():
 
-    opower_state = 0 # get orientation power state here
-    ipower_state = 0 # get imaging power state here
+#THIS FUNCTION IS USED FOR SELECTIVELY POWER CYCLING SUBSYSTEMS
+def power_cycle():
+    global opower_state # get orientation power state here
+    global ipower_state # get imaging power state here
     print("Select a system to power cycle (press 'm' to exit): \n\
                 'p': Power on all subsystems \n\
                 'o': Orientation control \n\
@@ -152,60 +188,85 @@ def power_cycle():
 
     while (not(system_select == 'm')):
 
-        if system_select == 'p':
+        if system_select == 'p': #POWER CYCLE ALL SUBSYSTEMS
             print("All systems will be rebooted now...")
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
             time.sleep(WAITING_TIME)
-##            if (bt_ser.readline() == SUCCESS_ACK):
-            received_data = None
+
+            ack = None
             a=0
-            while (received_data == None and a < 999999):
-                received_data = bt_ser.readline()       #CAUTION: NEED TO FIGURE OUT WHY THIS ISN'T WORKING
+            while (ack == None and a < WAITING_TIMEOUT):
+                ack = bt_ser.read()
                 a = a + 1
+            
+            if (a > WAITING_TIMEOUT):
+                print ("timeout error; a = " + str(a))
+            #print( "received data: " + str(ack))
 
-            print(a)
-            print( "received data: " + str(received_data))
-
-            if (received_data == system_select): #for testing CAUTION swap back to SUCCESS_ACK above once working
+            if (ack == SUCCESS_ACK):
                 print("All subsystems power cycled, success\n")
+                success = bt_ser.read()
+                print("power cycle success: " + success)
             else:
                 print("Incorrect message received from bluetooth")
             
-        elif system_select == 'o':
+        elif system_select == 'o': #TOGGLE ORIENTATION CONTROL POWER
             print("Toggling power on orientation control system...\n")
 
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
             time.sleep(WAITING_TIME)
-            state_received = None
-            while (state_received == None):
-                state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
-                success = bt_ser.readline()         # then send SUCCESS ACK
+            
+            ack = None
+            a=0
+            while (ack == None and a < WAITING_TIMEOUT):
+                ack = bt_ser.read()
+                a = a + 1
 
-            if (success == SUCCESS_ACK):
+            if (a > WAITING_TIMEOUT):
+                print ("timeout error; a = " + str(a))
+
+            if (ack == SUCCESS_ACK):
+                print("Orientation control power cycled, success\n")
+                state_received = None
+
+                while (state_received == None):
+                    state_received = bt_ser.read()  #@andy: need to send a 0/1 for state and \n         
+
                 opower_state = state_received
             else:
-                print("Incorrect message received from bluetooth")
-
-        elif system_select == 'i':
+                print("Orientation system power did not send SUCCESS_ACK")
+        elif system_select == 'i': #TOGGLE IMAGING SUBSYSTEM POWER
             print("Toggling power on imaging system...\n")
 
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
             time.sleep(WAITING_TIME)
-            state_received = None
-            while (state_received == None):
-                state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
-                success = bt_ser.readline()         # then send SUCCESS ACK
+            
+            ack = None
+            a=0
+            while (ack == None and a < WAITING_TIMEOUT):
+                ack = bt_ser.read()
+                a = a + 1
 
-            if (success == SUCCESS_ACK):
+            if (a > WAITING_TIMEOUT):
+                print ("timeout error; a = " + str(a))
+
+            if (ack == SUCCESS_ACK):
+                print("Imaging control power cycled, success\n")
+                state_received = None
+
+                while (state_received == None):
+                    state_received = bt_ser.read()  #@andy: need to send a 0/1 for state and \n         
+
                 ipower_state = state_received
             else:
-                print("Incorrect message received from bluetooth")            
+                print("Imaging system power did not send SUCCESS_ACK")
+          
         
         print("Orientation system powered? = " + str(opower_state))
         print("Imaging system powered? = " + str(ipower_state) + "\n\n")
@@ -221,7 +282,7 @@ def power_cycle():
     state = 0
     return
 
- 
+#THIS FUNCTION IS USED FOR STEERING THE SCOPE MANUALLY
 def manual_steer():
     print("Steering mode (press 'm' to return to main menu):\n")
     key = 0
@@ -300,7 +361,7 @@ def manual_steer():
                 #retry entry
                 print("Send a new move command: ")
                 
-    
+#THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
 def navigate_to():
     print("Navigate to point.....\n(press 'm' to return to main menu):\n")
     #calculate angle of declination and right ascension here
@@ -326,7 +387,7 @@ def navigate_to():
             ##send
             send_command(NAVIGATE_TO, destination)
 
-    
+#THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
 def save_image():
     send_command(SAVE, 'x')
     print("Capturing image...\n")
@@ -341,9 +402,18 @@ def save_image():
 '''*********************************************'''        
 '''              INITIALISATIONS                '''
 '''*********************************************'''
-#configure serial connection
-#consider replacing COM3 with a str variable \
+#configure serial connections
 
+#this port is used to simulate the telescope
+telescope = serial.Serial(
+    port=bluetoothRX_Testing,\
+    baudrate=COMS_BAUD,\
+    parity=serial.PARITY_NONE,\
+    stopbits=serial.STOPBITS_ONE,\
+    bytesize=serial.EIGHTBITS,\
+        timeout=0)              #simulated telescope receiving/sending port (receieves bt_ser.write)
+
+#this port is used for communication with the DSN block before sending a command by BT
 cp2102_ser = serial.Serial(
     port=usbTTL_COM,\
     baudrate=COMS_BAUD,\
@@ -352,8 +422,7 @@ cp2102_ser = serial.Serial(
     bytesize=serial.EIGHTBITS,\
         timeout=0)              #computer to CP2102 serial port, used for interfacing with the DSN block 10sec delay
 
-#may need to initialize settings in AT mode here (see todo 2.1 and then send AT+RESET
-#to enter pairing mode... or would this algorithm be used on board...
+#this port is used to pair with the telescope and send commands via the laptop's built in BT
 bt_ser = serial.Serial( #used for testing right now
     port=bluetooth_COM,\
     baudrate=COMS_BAUD,\
@@ -414,7 +483,7 @@ while True:
         time.sleep(1)
 
         data = bt_ser.readline()
-        print("data received from bluetooth: " + data)
+        print("data received from telescope: " + data)
         if finished:
             state = MENU
             print("done")
