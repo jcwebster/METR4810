@@ -17,8 +17,7 @@
   C.  - navigate to
 - need to develop calibration algorithm with andy
 - A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
-- D. implement testing code that runs only if testing == 1;
-    - use for sending fake BT responses
+- A.1 need to ensure that .readlines() have enough time to read full command (e.g. manual steer)
 '''
 
 from __future__ import print_function
@@ -33,7 +32,7 @@ import serial
 '''*********************************************'''
 
 '''*********************************************'''        
-'''              VARIABLE DECLARaTIONS           '''
+'''              VARIABLE DECLARATIONS           '''
 '''*********************************************'''
 #testing variables:
 TESTING = 1
@@ -102,7 +101,7 @@ def send_command(mode, command):
             
             ret_val = 1
         elif (mode == MANUAL):
-            print(str(command[0]) + str(command[1]) + str(command[2]))
+            print(str(command[0]) + str(command[1]))
             print("Sending command/coords[]..")
     #CAUTION: format coordinate command correctly here before writing...
             cp2102_ser.writelines(str(command[0]) + str(command[1]))
@@ -142,6 +141,7 @@ def send_command(mode, command):
 def telescope_sim_response(mode, system_select = 0):
     if ((telescope.isOpen()) and (bt_ser.isOpen())):
         rx_data = telescope.readline()
+        time.sleep(WAITING_TIME)
         print("telescope received: " + str(rx_data))
 
         #send response from telescope
@@ -213,8 +213,8 @@ def power_cycle():
             print( "received data: " + str(ack))
             if (int(ack) == SUCCESS_ACK):
                 print("All subsystems power cycled, success\n")
-                success = bt_ser.read()
-                print("power cycle success: " + success)
+                success = bt_ser.readlines()
+                print("power cycle success: " + str(success))
             else:
                 print("Incorrect message received from bluetooth")
             
@@ -235,13 +235,13 @@ def power_cycle():
             if (a > WAITING_TIMEOUT):
                 print ("timeout error; a = " + str(a))
 
-            print( "received data: " + str(ack))
+##            print( "received data: " + str(ack))
             if (int(ack) == SUCCESS_ACK):
                 print("Orientation control power cycled, success\n")
                 state_received = None
 
                 while (state_received == None):
-                    state_received = bt_ser.read()  #@andy: need to send a 0/1 for state and \n         
+                    state_received = bt_ser.readlines()  #@andy: need to send a 0/1 for state and \n         
 
                 opower_state = state_received
             else:
@@ -268,7 +268,7 @@ def power_cycle():
                 state_received = None
 
                 while (state_received == None):
-                    state_received = bt_ser.read()  #@andy: need to send a 0/1 for state and \n         
+                    state_received = bt_ser.readlines()  #@andy: need to send a 0/1 for state and \n         
 
                 ipower_state = state_received
             else:
@@ -297,9 +297,8 @@ def manual_steer():
     print(key)
 
     angleStep = 10
-    pitch = 0
-    roll = 0
-    yaw = 0
+    angleDec = 0
+    rightAsc = 0
     
     done = 0
 
@@ -316,28 +315,28 @@ def manual_steer():
 ##        degrees = counter * k #k is some scaling factor to convert counter value to degrees
        
         if (key == 'w'):
-            pitch = pitch + angleStep
+            angleDec = angleDec + angleStep
         elif (key == 's'):
-            pitch = pitch - angleStep
+            angleDec = angleDec - angleStep
         elif (key == 'd'):
-            yaw = yaw + angleStep
+            rightAsc = rightAsc + angleStep
         elif (key == 'a'):
-            yaw = yaw - angleStep
-        elif (key == 'e'):
-            roll = roll + angleStep
-        elif (key == 'q'):
-            roll = roll - angleStep
+            rightAsc = rightAsc - angleStep
+##        elif (key == 'e'):
+##            roll = roll + angleStep
+##        elif (key == 'q'):
+##            roll = roll - angleStep
         elif (key == 'j'):         #else change angleStep size
             angleStep = angleStep / 2
         elif (key == 'k'):
             angleStep = angleStep * 2
 
-        print("Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
-              + " Roll: " + str(roll) + '\r')
+        print("angleDec: " + str(angleDec) + " rightAsc: " + str(rightAsc)\
+              + "\r")
 
         if (key == ""): 
-            print('\nMove ' + "Pitch: " + str(pitch) + " Yaw: " + str(yaw)\
-              + " Roll: " + str(roll) + ' (deltas)? (y/n to confirm)')
+            print('\nMove ' + "angleDec: " + str(angleDec) + " rightAsc: " + str(rightAsc)\
+                  + ' (deltas)? (y/n to confirm)')
 
             decision = 0
 
@@ -345,14 +344,38 @@ def manual_steer():
                 decision = raw_input()
 
             if (decision == 'y'):
-                coords = [pitch, yaw, roll]
+                coords = [angleDec, rightAsc]
 ##CAUTION: need to implement xyz_to_Orbital function here on coords
                 ## and send orbital coords
                 if (send_command(MANUAL, coords) == -1): 
                     print("error\n")
                 
                 time.sleep(WAITING_TIME)
-                state_received = None
+                ack = None
+                a=0
+                while (ack == None and a < WAITING_TIMEOUT):
+                    ack = bt_ser.read()
+                    a = a + 1
+
+                if (a > WAITING_TIMEOUT):
+                    print ("timeout error; a = " + str(a))
+
+    ##            print( "received data: " + str(ack))
+                if (int(ack) == SUCCESS_ACK):
+                    print("Manual steer successful\n")
+                    return
+                else:
+                    print("Manual steer did not rcv SUCCESS_ACK")
+                    print("Returning to Menu")
+                    global state
+                    state = 0
+                    return
+            
+            elif (decision == 'n'):
+                #retry entry
+                print("Send a new move command: ")
+                
+'''                state_received = None #moved from above last 'elif'
                 while (state_received == None):
                     state_received = bt_ser.readline()  #@andy: need to send a 0/1 for state and \n             
                     success = bt_ser.readline()         # then send SUCCESS ACK
@@ -364,18 +387,15 @@ def manual_steer():
                 else:
                     print("Failed to send move command")
                 return
-            elif (decision == 'n'):
-                #retry entry
-                print("Send a new move command: ")
-                
+'''
+              
 #THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
 def navigate_to():
     print("Navigate to point.....\n(press 'm' to return to main menu):\n")
     #calculate angle of declination and right ascension here
     angleStep = 10
-    pitch = 0
-    roll = 0
-    yaw = 0
+    angleDec = 0
+    rightAsc = 0
     key = '0'
     
     done = 0
@@ -493,7 +513,7 @@ while True:
         print("data received from telescope: " + data)
         if finished:
             state = MENU
-            print("done")
+            print("done\n\n")
         #exit if interrupt 'm' is received or finished
     elif state == POWER_CYCLING:
         #enable power cycling
