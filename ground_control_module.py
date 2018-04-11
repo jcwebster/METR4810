@@ -39,7 +39,6 @@ import serial
 TESTING = 1
 bluetoothRX_Testing = 'COM3'
 
-
 #communication variables
 COMS_BAUD = 1200
 usbTTL_COM = 'COM9'
@@ -78,13 +77,14 @@ ipower_state = 0
 # and then once it receives the command from the DSN block, it transmits \
 # it through the bluetooth serial port
 def send_command(mode, command):
+    ret_val = 0
     if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
 
         if (mode == CALIBRATION or mode == POWER_CYCLING or mode == SAVE): 
             cp2102_ser.writelines(command)
             data_to_send = None
             
-            print("waiting...")
+            print("sending to DSN...")
             time.sleep(DSN_DELAY) 
             data_to_send = cp2102_ser.readline()
 ##            #Need to test this more thoroughly
@@ -96,11 +96,11 @@ def send_command(mode, command):
             print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
             time.sleep(1)
-            return 1
+            ret_val = 1
         
         elif (mode == NAVIGATE_TO):
             
-            return 1
+            ret_val = 1
         elif (mode == MANUAL):
             print(str(command[0]) + str(command[1]) + str(command[2]))
             print("Sending command/coords[]..")
@@ -120,14 +120,20 @@ def send_command(mode, command):
             print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
             
-            return 1
+            ret_val = 1
         else:
             print("Invalid mode")
-            return -1
+            ret_val = -1
 
-        if (TESTING):
-            telescope_sim_response(mode)
+        global TESTING
+        if TESTING:
+            if mode == POWER_CYCLING:
+                telescope_sim_response(mode, system_select=command)
+            else:
+                telescope_sim_response(mode)
             print( "**SIMULATING SCOPE RESPONSE**")
+
+        return ret_val
     else:
         print("error opening a serial port")
         return -1
@@ -142,9 +148,9 @@ def telescope_sim_response(mode, system_select = 0):
         telescope.writelines(str(SUCCESS_ACK))
         print("sent ack")
         
-        if (mode == CALIBRATION):
-
-        elif mode == POWER_CYCLING:
+##        if (mode == CALIBRATION):
+            
+        if mode == POWER_CYCLING:
             global opower_state
             global ipower_state
             if system_select == 'p':
@@ -156,9 +162,9 @@ def telescope_sim_response(mode, system_select = 0):
                 ipower_state = not ipower_state
                 telescope.writelines(str(ipower_state))
     
-        elif mode == MANUAL:
+##        elif mode == MANUAL:
 
-        elif mode == NAVIGATE_TO:
+##        elif mode == NAVIGATE_TO:
 ##        telescope.writelines(str(rx_data))
 ##        print("sent rx_data")
 
@@ -203,9 +209,9 @@ def power_cycle():
             
             if (a > WAITING_TIMEOUT):
                 print ("timeout error; a = " + str(a))
-            #print( "received data: " + str(ack))
 
-            if (ack == SUCCESS_ACK):
+            print( "received data: " + str(ack))
+            if (int(ack) == SUCCESS_ACK):
                 print("All subsystems power cycled, success\n")
                 success = bt_ser.read()
                 print("power cycle success: " + success)
@@ -229,7 +235,8 @@ def power_cycle():
             if (a > WAITING_TIMEOUT):
                 print ("timeout error; a = " + str(a))
 
-            if (ack == SUCCESS_ACK):
+            print( "received data: " + str(ack))
+            if (int(ack) == SUCCESS_ACK):
                 print("Orientation control power cycled, success\n")
                 state_received = None
 
@@ -256,7 +263,7 @@ def power_cycle():
             if (a > WAITING_TIMEOUT):
                 print ("timeout error; a = " + str(a))
 
-            if (ack == SUCCESS_ACK):
+            if (int(ack) == SUCCESS_ACK):
                 print("Imaging control power cycled, success\n")
                 state_received = None
 
