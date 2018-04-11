@@ -6,18 +6,12 @@
 '''TODO:
 - NOTE: bluetooth com connection with HC06 doesn't always work right after a break in program
 -test 'send-command' fnction - work with Andy for the "@andy" comments
-- note for @andy 2: booting the HC05 in AT mode with hardware and then sending a
-            serial.write("AT+RESET")to the hc06 module on board after settings are
-            configured SHOULD put the module into pairing mode and
-            it should work as configured after that.
     note3 Andy: always send success_ACK first if command was successful, then data
 - implement send_command() for all modes of operation
-    - calibration
-  B.  - manual - change xyz entry to angle of declin. and ra
-  C.  - navigate to
+    E. - calibration
+    C. - navigate to
 - need to develop calibration algorithm with andy
 - A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
-- A.1 need to ensure that .readlines() have enough time to read full command (e.g. manual steer)
 '''
 
 from __future__ import print_function
@@ -44,7 +38,7 @@ usbTTL_COM = 'COM9'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
-WAITING_TIME = 5  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
+WAITING_TIME = 2  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
 DSN_DELAY = 2
 WAITING_TIMEOUT = 9999
 
@@ -118,7 +112,7 @@ def send_command(mode, command):
             #send data that was received
             print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
-            
+            time.sleep(WAITING_TIME)
             ret_val = 1
         else:
             print("Invalid mode")
@@ -140,7 +134,13 @@ def send_command(mode, command):
 #THIS FUNCTION SIMULATES A RESPONSE FROM THE TELESCOPE
 def telescope_sim_response(mode, system_select = 0):
     if ((telescope.isOpen()) and (bt_ser.isOpen())):
-        rx_data = telescope.readline()
+        bit = telescope.read()
+        rx_data = bit
+        while(not (bit == "")):
+            bit = telescope.read()
+            rx_data = rx_data + str(bit)
+##        rx_data = telescope.readline()
+##        rx_remainder = telescope.readline()
         time.sleep(WAITING_TIME)
         print("telescope received: " + str(rx_data))
 
@@ -199,7 +199,7 @@ def power_cycle():
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
-            time.sleep(WAITING_TIME)
+##            time.sleep(WAITING_TIME)
 
             ack = None
             a=0
@@ -224,7 +224,7 @@ def power_cycle():
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
-            time.sleep(WAITING_TIME)
+##            time.sleep(WAITING_TIME)
             
             ack = None
             a=0
@@ -252,7 +252,7 @@ def power_cycle():
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
-            time.sleep(WAITING_TIME)
+##            time.sleep(WAITING_TIME)
             
             ack = None
             a=0
