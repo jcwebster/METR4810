@@ -12,6 +12,8 @@
     C. - navigate to
 - need to develop calibration algorithm with andy
 - A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
+- ENSURE ALL WRITELINES: HAVE A WAIT AFTER THEM
+
 '''
 
 from __future__ import print_function
@@ -90,15 +92,16 @@ def send_command(mode, command):
             bt_ser.writelines(data_to_send)
             time.sleep(1)
             ret_val = 1
-        
-        elif (mode == NAVIGATE_TO):
-            
-            ret_val = 1
-        elif (mode == MANUAL):
+
+        elif ((mode == MANUAL) or (mode == NAVIGATE_TO)):
             print(str(command[0]) + str(command[1]))
-            print("Sending command/coords[]..")
+            print("Steering to coords[" + str(command[0]) + ","\
+                  + str(command[1]) + "]...")
     #CAUTION: format coordinate command correctly here before writing...
+##
+##            
             cp2102_ser.writelines(str(command[0]) + str(command[1]))
+            time.sleep(WAITING_TIME)
             data_to_send = None
             
     #CAUTION: need to implement a wait or while loop for reading?
@@ -114,6 +117,7 @@ def send_command(mode, command):
             bt_ser.writelines(data_to_send)
             time.sleep(WAITING_TIME)
             ret_val = 1
+            
         else:
             print("Invalid mode")
             ret_val = -1
