@@ -1,6 +1,7 @@
 ##NETR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
-##30 Mar 2018. Last rev: 060418
+##30 Mar 2018.
+##Last rev: 130418
 ##Author: John Webster
 
 '''TODO:
@@ -77,11 +78,14 @@ def send_command(mode, command):
 
         if (mode == CALIBRATION or mode == POWER_CYCLING or mode == SAVE): 
             cp2102_ser.writelines(command)
+            time.sleep(WAITING_TIME)
             data_to_send = None
             
             print("sending to DSN...")
             time.sleep(DSN_DELAY) 
             data_to_send = cp2102_ser.readline()
+            time.sleep(WAITING_TIME)
+            
 ##            #Need to test this more thoroughly
 ##            while (data_to_send == None):
 ##                #pass
@@ -90,7 +94,7 @@ def send_command(mode, command):
             #send data that was received
             print(data_to_send + " received from DSN, sending...")
             bt_ser.writelines(data_to_send)
-            time.sleep(1)
+            time.sleep(WAITING_TIME)
             ret_val = 1
 
         elif ((mode == MANUAL) or (mode == NAVIGATE_TO)):
@@ -104,7 +108,6 @@ def send_command(mode, command):
             time.sleep(WAITING_TIME)
             data_to_send = None
             
-    #CAUTION: need to implement a wait or while loop for reading?
             print("waiting...")
             time.sleep(DSN_DELAY) #could remove
             
@@ -420,14 +423,15 @@ def navigate_to():
 
 #THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
 def save_image():
-    send_command(SAVE, 'x')
     print("Capturing image...\n")
+    send_command(SAVE, 'x')
 
-    #wait for and receive iamge save ACKnowledgement
-    while (not bt_ser.readline()):
-        pass
+    #wait for and receive image save ACKnowledgement
+    acked = None
+    while (acked == None):
+        acked = bt_ser.readline()
     
-    print("Mission successful = " + bt_ser.readline())
+    print("Mission successful = " + acked)
     
 
 '''*********************************************'''        
@@ -502,7 +506,8 @@ while True:
                 2. Subsystem power management \n\
                 3. Manual free steering \n\
                 4. Navigate to point \n\
-                5. Shutdown")
+                5. Shutdown \n\
+                6. Save")
 
         state = int(raw_input())
     
@@ -544,6 +549,13 @@ while True:
         state = MENU
 
         #exit when....
+    elif state == SAVE:
+
+        #need to implement a method of interrupting to save...
+        if save_image():
+            print ('image save successful')
+        
+        state = MENU
     elif state == SHUTDOWN:
         break
 print("closing serial ports..")
