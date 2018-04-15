@@ -14,7 +14,9 @@
     C. - navigate to
 - need to develop calibration algorithm with andy
 - A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
-
+- # read coordinates returned, in manual steer and nav_to
+- implement a method of handling a non integer entered for coordinates to send (i.e. go to 0,0 by default?
+    - error occurs in line 481 destination = [,]
 '''
 
 from __future__ import print_function
@@ -72,15 +74,16 @@ ipower_state = 0
 '''*********************************************'''        
 '''              FUNCTION DEFINITIONS           '''
 '''*********************************************'''
+
 '''
-#this function sends a command through the DSN block following protocol, \
-# and then once it receives the command from the DSN block, it transmits \
-# it through the bluetooth serial port
+@brief  sends a command through the DSN block following protocol, 
+        and then once it receives the command from the DSN block, it transmits 
+        it through the bluetooth serial port
 '''
 def send_command(mode, command):
     ret_val = 0
     if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
-
+        
         if (mode == CALIBRATION or mode == POWER_CYCLING or mode == SAVE): 
             #send the same command that fnc was passed
             cp2102_ser.writelines(command)
@@ -206,9 +209,11 @@ def coords_to_send(userRA = 0, userDEC = 0):
     
     convertedRA = np.uint16(deg_to_16bit(userRA))
     convertedDEC = np.uint16(deg_to_16bit(userDEC))
-    print ('converted ' + str(userRA) + ',' + str(userDEC) + ' to ' \
+
+    if TESTING:
+        print ('converted ' + str(userRA) + ',' + str(userDEC) + ' to ' \
            + str(convertedRA) + ',' + str(convertedDEC) + '.')
-    print('send now')
+        print('send now')
     coords = [convertedRA, convertedDEC]
     return coords
 
@@ -460,8 +465,6 @@ def manual_steer():
 '''
 def navigate_to():
     print("Navigate to point.....\n(press 'm' to return to main menu):\n")
-    #calculate angle of declination and right ascension here
-    angleStep = 10
     angleDec = 0
     rightAsc = 0
     key = '0'
@@ -475,13 +478,32 @@ def navigate_to():
         dec = raw_input()
 
         if (ra == 'm' or dec == 'm'):
-                break
+            break
         else:
-            ##format into coords to send here
-            
             destination = [int(ra), int(dec)]  
-            ##send
-            send_command(NAVIGATE_TO, destination)
+            if (send_command(NAVIGATE_TO, destination) == -1): 
+                print("error\n")
+            
+            time.sleep(WAITING_TIME)
+            ack = None
+            a=0
+            while (ack == None and a < WAITING_TIMEOUT):
+                ack = bt_ser.read()
+                a = a + 1
+
+            if (a > WAITING_TIMEOUT):
+                print ("timeout error; a = " + str(a))
+
+            if (not (ack == '')):    
+                if (int(ack) == SUCCESS_ACK):
+                    coordinates = [0,0] # read coordinates returned, here
+
+                    print("MOVED TO " + str(coordinates[0]) + ", success\n")
+                    #now read coords
+                else:
+                    print("Incorrect message received from bluetooth")
+            else:
+                print('NACK received')
 
 '''
 #THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
@@ -603,7 +625,7 @@ while True:
     elif state == NAVIGATE_TO:
         #enter point to point navigation mode
         print("Navigate to...")
-
+        navigate_to()
         time.sleep(1)
         state = MENU
 
