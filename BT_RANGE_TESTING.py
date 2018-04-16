@@ -21,8 +21,8 @@ usbTTL_COM = 'COM3'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
-WAITING_TIME = 0  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
-DSN_DELAY = 0
+WAITING_TIME = 1  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
+DSN_DELAY = 1
 
 CALIBRATION = 1
 
@@ -42,34 +42,37 @@ def calibrate():
         return
     
 def send_command(mode, command):
-    #if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
     cp2102_ser.writelines(command)
     data_to_send = None
     
     print("waiting...")
-    time.sleep(DSN_DELAY) 
+    time.sleep(WAITING_TIME) 
     data_to_send = cp2102_ser.readline()
-
 
     #send data that was received
     print(data_to_send + " received from DSN, sending...")
     bt_ser.writelines(data_to_send)
-    time.sleep(1)
+    time.sleep(WAITING_TIME)
 
+    global TESTING
+    if TESTING:
+        telescope_sim_response(mode)
+    else:
+        print('*not testing, waiting for response from telescope*')
     return 1
 
+    
 def telescope_sim_response(mode):
     if ((telescope.isOpen()) and (bt_ser.isOpen())):
         rx_data = telescope.readline()
+        time.sleep(WAITING_TIME) 
         print("telescope received: " + str(rx_data))
-
-        #if mode == CALIBRATION):
         #send response from telescope
-        telescope.writelines(str(SUCCESS_ACK))
-        print("sent ack")
+##        telescope.writelines(str(SUCCESS_ACK))
+##        print("sent ack")
 
         telescope.writelines(str(rx_data))
-        print("sent rx_data")
+        print("sent " + str(rx_data))
 
 
 telescope = serial.Serial(
@@ -110,17 +113,27 @@ else:
 
 coords = [pitch, yaw, roll]
 data = 'p'
-##if (send_command(3, coords) == -1): #CAUTION: NEED TO MAKE A LIST AND SEND
-##    print("error\n")
-##
-##if (send_command(0, 't')):
-##    print( "success")
 
-calibrate()
+while True:
+    print("Enter a char to send: \n")
+    char_to_send = raw_input()
 
-telescope_sim_response(CALIBRATION)
+    if (send_command(CALIBRATION, char_to_send)):
+        global finished
+        finished = 1
+    else:
+        print("Error in sending command")
 
-time.sleep(1)
+    if TESTING:
+        rcvd = bt_ser.readline()
+        time.sleep(WAITING_TIME)
+        print(str(rcvd) + " received.")
+    
+        
+
+##telescope_sim_response(CALIBRATION)
+
+##time.sleep(1)
 
 ack = bt_ser.read()
 data2 = bt_ser.read()
