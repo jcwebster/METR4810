@@ -72,6 +72,7 @@ def telescope_sim_response(mode):
 ##        print("sent ack")
 
         telescope.writelines(str(rx_data))
+        time.sleep(WAITING_TIME)
         print("sent " + str(rx_data))
 
 
@@ -118,6 +119,9 @@ while True:
     print("Enter a char to send: \n")
     char_to_send = raw_input()
 
+    if char_to_send == 'e':
+        break
+    
     if (send_command(CALIBRATION, char_to_send)):
         global finished
         finished = 1
@@ -135,7 +139,7 @@ while True:
 
 ##time.sleep(1)
 
-ack = bt_ser.read()
-data2 = bt_ser.read()
-print("data received from bluetooth: " + ack + " " + data2)
-
+print("closing serial ports..")
+cp2102_ser.close()
+bt_ser.close()
+telescope.close()
