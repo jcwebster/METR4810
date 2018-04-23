@@ -1,7 +1,9 @@
 ##contains two test files. see older version commented out below
+import cv2
+import time
 
 #1. Create an object. Zero for external camera: actually brings up prompt to select camera. 1 starts webcam (no image)
-video = cv2.VideoCapture(1)
+video = cv2.VideoCapture(0)
 success = video.isOpened()
 
 if not success:

@@ -12,7 +12,7 @@ yaw  = 10
 roll = -20
 
 #testing variables:
-TESTING = 1
+TESTING = 0
 bluetoothRX_Testing = 'COM4'
 
 #communication variables
@@ -21,8 +21,8 @@ usbTTL_COM = 'COM3'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
-WAITING_TIME = 1  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
-DSN_DELAY = 1
+WAITING_TIME = 0  # CAUTION: adjust waiting time as necessary during testing, or add a while loop
+DSN_DELAY = 0
 
 CALIBRATION = 1
 
@@ -42,18 +42,21 @@ def calibrate():
         return
     
 def send_command(mode, command):
-    cp2102_ser.writelines(command)
-    data_to_send = None
-    
-    print("waiting...")
-    time.sleep(WAITING_TIME) 
-    data_to_send = cp2102_ser.readline()
-
-    #send data that was received
-    print(data_to_send + " received from DSN, sending...")
-    bt_ser.writelines(data_to_send)
-    time.sleep(WAITING_TIME)
-
+##    cp2102_ser.writelines(command)
+##    data_to_send = None
+##    
+##    print("waiting...")
+##    time.sleep(WAITING_TIME) 
+##    data_to_send = cp2102_ser.readline()
+##
+##    #send data that was received
+##    print(data_to_send + " received from DSN, sending...")
+##    bt_ser.writelines(data_to_send)
+##    time.sleep(WAITING_TIME)
+    while a < 50:
+        a = a + 1
+        bt_ser.writelines(command) # send directly 
+ 
     global TESTING
     if TESTING:
         telescope_sim_response(mode)
@@ -75,14 +78,14 @@ def telescope_sim_response(mode):
         time.sleep(WAITING_TIME)
         print("sent " + str(rx_data))
 
-
-telescope = serial.Serial(
-    port=bluetoothRX_Testing,\
-    baudrate=COMS_BAUD,\
-    parity=serial.PARITY_NONE,\
-    stopbits=serial.STOPBITS_ONE,\
-    bytesize=serial.EIGHTBITS,\
-        timeout=0)              #simulated telescope receiving/sending port (receieves bt_ser.write)
+if TESTING:
+    telescope = serial.Serial(
+        port=bluetoothRX_Testing,\
+        baudrate=COMS_BAUD,\
+        parity=serial.PARITY_NONE,\
+        stopbits=serial.STOPBITS_ONE,\
+        bytesize=serial.EIGHTBITS,\
+            timeout=0)              #simulated telescope receiving/sending port (receieves bt_ser.write)
 
 cp2102_ser = serial.Serial(
     port=usbTTL_COM,\

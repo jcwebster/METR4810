@@ -1,7 +1,7 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
 ##30 Mar 2018.
-##Last rev: 130418
+##Last rev: 160418
 ##Author: John Webster
 
 '''TODO:
@@ -12,11 +12,15 @@
 - implement send_command() for all modes of operation
     E. - calibration
     C. - navigate to
+- check how coordinates are being sent as uint16s by printing
 - need to develop calibration algorithm with andy
 - A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
 - # read coordinates returned, in manual steer and nav_to
 - implement a method of handling a non integer entered for coordinates to send (i.e. go to 0,0 by default?
     - error occurs in line 481 destination = [,]
+    https://stackoverflow.com/questions/5025399/python-2-7-try-and-except-valueerror?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+- implement a 'SEND_THRU_DSN' function that returns the data parameter you pass in
+- ensure all error handling is taken care of such that no disconnection can occur
 '''
 
 from __future__ import print_function
@@ -35,7 +39,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-bluetoothRX_Testing = 'COM4'
+bluetoothRX_Testing = 'COM12'
 
 #communication variables
 COMS_BAUD = 1200 #set baudrate of communication between all devices
@@ -86,7 +90,7 @@ def send_command(mode, command):
         
         if (mode == CALIBRATION or mode == POWER_CYCLING or mode == SAVE): 
             #send the same command that fnc was passed
-            cp2102_ser.writelines(command)
+            cp2102_ser.writelines(str(command))
             time.sleep(WAITING_TIME)
             data_to_send = None
             
