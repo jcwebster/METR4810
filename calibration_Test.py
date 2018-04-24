@@ -8,11 +8,11 @@ import time
 
 #testing variables:
 TESTING = 1
-scope_COM = 'COM3'
+scope_COM = 'COM4'
 
 #communication variables
-COMS_BAUD = 1200
-usbTTL_COM = 'COM12'
+COMS_BAUD = 1200 # limited by DSN
+DSN_COM = 'COM3'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # NEED TO ASK ANDY WHAT CHAR HE WOULD LIKE TO SEND AS AN ACK for success or failure
@@ -23,8 +23,9 @@ WAITING_TIMEOUT = 9999
 
 CALIBRATION = 1
 ##CALIBRATION VARIABLES
-CALIBRATE_ROLL = 'F'
-CALIBRATE_PITCH = 'G'
+CALIBRATE_ROLL = 'F' #commands telescope to steer YawRight and measure angle to correct the roll
+#- or if it doesn't, it waits for an angle to roll sent by user at ground
+CALIBRATE_PITCH = 'G' #scope moves up to lcoking point then steers back down to 0deg pitch 
 CALIBRATE_YAW = 'H'
 
 
@@ -34,7 +35,7 @@ def test():
 def check_ACK():
     ack = None
     a=0
-    bt_ser.read() #CAUTION; EXTRA
+##    bt_ser.read() #CAUTION; EXTRA
     while (ack == None and a < WAITING_TIMEOUT):
         ack = bt_ser.read()
         a = a + 1
@@ -45,26 +46,27 @@ def check_ACK():
     if (not (ack == '')):    
         if (int(ack) == SUCCESS_ACK):
             if TESTING:
-                print("ACK success\n")
+                print("ACK received by ground control.\n")
         else:
             print("WHAT?: " + ack)
+        return 1
     else:
         print('NACK received')
+        return 0
 
 def calibrate():
     print("Beginning calibration...\n")
     #calibrate here...
 
     ## Send calibration command to begin yaw movement and set micro to rcv data for calibrating roll
-    send_command(CALIBRATION, CALIBRATE_ROLL)
-
-    '''
-        response of telescope will either autonomously move yaw right and
-        measure angle to roll, OR user will have to trace the path of motion
-        and calculate the angle of correction manually and enter it here
-    '''
-    done = 0
-    while (not done):       
+    doneRoll = 0
+    while (not doneRoll):
+        send_command(CALIBRATION, CALIBRATE_ROLL)
+        '''
+            response of telescope will either autonomously move yaw right and
+            measure angle to roll, OR user will have to trace the path of motion
+            and calculate the angle of correction manually and enter it here
+        '''
         print('Telescope moved yaw [right]; enter roll correction angle (clockwise):')
         rollCorrection = raw_input()
 
@@ -77,41 +79,115 @@ def calibrate():
             decision = raw_input()
 
         if (decision == 'y'):
-            send_command(CALIBRATION, rollCorrection)
-            done = 1
+            send_command(CALIBRATION, rollCorrection) # scope sends ACK when successful
+            doneRoll = 1
+
+            if (not check_ACK()):
+                print ('error - no ack. returning to main menu')
+##                global STATE
+##                STATE = menu
+                return
+            else:
+                print('Calibrated Roll')
         else: #'n'
             print('please reenter roll correction...')
-
-    if (not check_ACK()):
-        print ('error checking ack')
-        return
+        
                
     # Spacecraft should pitch up to gimbal lock, then move down automatically
     # to 0deg pitch
-    send_command(CALIBRATION, CALIBRATE_PITCH)
-    check_ACK()
+    donePitch = 0
+    while (not donePitch):
+        send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
+        print('Telescope steering to vertical... \n\r Calibrating pitch...')
+        print('Adjust pitch? (type j/k to inc/dec degree value or enter if ok)')
+
+        key = raw_input()
+        adjustPitch = 0
+        done = 0
+        while (not(done)):
+            if (key == 'j'):
+                adjustPitch = adjustPitch + 1
+            elif (key == 'k'):
+                adjustPitch = adjustPitch - 1
+
+            print('adjustPitch (deg): ' + str(adjustPitch))
+            key = raw_input()
+            if (key == ""):
+                done = 1
+                print('\nSteer pitch ' + str(adjustPitch) + " degrees? (y/n to confirm)")
+
+                decision = 0
+
+                while (not(decision == 'y') or (decision == 'n')):
+                    decision = raw_input()
+
+                if (decision == 'y'):
+                    send_command(CALIBRATION, adjustPitch) #adjustPitch value will be 0 if good
+                      # scope sends ACK when successful
+                    if (not check_ACK()):
+                        print ('error - no ack. returning to main menu')
+        ##                global STATE
+        ##                STATE = menu
+                        return
+                    else: #recvd ack
+                        print('Calibrated pitch\n\r Happy? (y/n)')
+                        ans = 0
+                        while (not(ans == 'y') or (ans == 'n')):
+                            ans = raw_input()
+
+                        if (ans == 'y'):
+                            donePitch = 1
+                            print("Done calibrating Pitch")
+                        else:
+                            print ("Retrying pitch calibration...")
+                else:
+                    print ("retry entry or 'e' to exit")
+                
+            elif (key == 'e'):
+                break
+                      
     
     #spins 360deg to calibrate MAG3110 and then uses N heading to point
     #at 0deg relative to Hawken Gallery
-    send_command(CALIBRATION, CALIBRATE_YAW)
+    doneYaw = 0
+    while (not doneYaw):
+        send_command(CALIBRATION, CALIBRATE_YAW) #commands scope to spin 360 to calibrate mag3110
+        #scope should automatically steer to 0deg in Hawken
 
-    check_ACK()
+        if (not check_ACK()):
+            print ('error - no ack. returning to main menu')
+##          global STATE
+##          STATE = menu
+            return
+        else: #recvd ack
+            print('Calibrated yaw\n\r Happy? (y/n)')
+            ans = 0
+            while (not(ans == 'y') or (ans == 'n')):
+                ans = raw_input()
+
+            if (ans == 'y'):
+                doneYaw = 1
+                print("Done calibrating Yaw")
+            else:
+                print ("Retrying yaw calibration...")
+
+    print("Finished calibration!")
     
   
 def send_command(mode, command, angle = 0):
     ret_val = 0
     done = 0
-    if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
+    if ((DSN_SERIAL.isOpen()) and (bt_ser.isOpen())):
         
         if (mode == CALIBRATION):        
             #send the same command that fnc was passed
-            cp2102_ser.writelines(str(command))
+            DSN_SERIAL.writelines(str(command))
             time.sleep(WAITING_TIME)
             data_to_send = None
             
             print("sending to DSN...")
             time.sleep(DSN_DELAY) 
-            data_to_send = cp2102_ser.readline()
+            data_to_send = DSN_SERIAL.readline()
             time.sleep(WAITING_TIME)
 
             #send data that was received back through cp2102
@@ -169,8 +245,8 @@ if __name__ == '__main__': #calibration_Test.py executed as script
             bytesize=serial.EIGHTBITS,\
                 timeout=0)              #simulated telescope receiving/sending port (receieves bt_ser.write)
 
-    cp2102_ser = serial.Serial(
-        port=usbTTL_COM,\
+    DSN_SERIAL = serial.Serial(
+        port=DSN_COM,\
         baudrate=COMS_BAUD,\
         parity=serial.PARITY_NONE,\
         stopbits=serial.STOPBITS_ONE,\
@@ -187,9 +263,9 @@ if __name__ == '__main__': #calibration_Test.py executed as script
         bytesize=serial.EIGHTBITS,\
             timeout=0)              #Bluetooth to computer serial port connection, used to transmit and receieve commands from the telescope
 
-    if ((cp2102_ser.isOpen()) and (bt_ser.isOpen())):
+    if ((DSN_SERIAL.isOpen()) and (bt_ser.isOpen())):
                     
-        print("Computer CP2102 connected to: " + cp2102_ser.portstr + ", baudrate: " + str(cp2102_ser.baudrate))
+        print("Computer CP2102 connected to: " + DSN_SERIAL.portstr + ", baudrate: " + str(DSN_SERIAL.baudrate))
         print("Bluetooth " + bt_device + " connected to: " + bt_ser.portstr + ", baudrate: " + str(bt_ser.baudrate))
         if (TESTING):
             print("telescope simulator connected to port: " + telescope.portstr + ", baudrate: " + str(telescope.baudrate))
@@ -221,6 +297,6 @@ if __name__ == '__main__': #calibration_Test.py executed as script
     ##time.sleep(1)
 
     print("closing serial ports..")
-    cp2102_ser.close()
+    DSN_SERIAL.close()
     bt_ser.close()
     telescope.close()
