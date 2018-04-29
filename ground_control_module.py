@@ -1,27 +1,19 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
-##30 Mar 2018.
-##Last rev: 160418
+##30 Mar 2018
+##Last rev: 290418
 ##Author: John Webster
 
 '''TODO:
-- NOTE: bluetooth com connection with HC06 doesn't always work right after a break in program
--test 'send-command' fnction - work with Andy for the "@andy" comments
+- work with Andy for the "@andy" comments
     note3 Andy: always send success_ACK first if command was successful, then data
-    note4 Andy: Currently send 1st coordinate, uint16_t, space character " ", and then second coord (RA, DEC)
+    note4 Andy: Currently send 1st coordinate, uint16_t, space character " " and '\n', and then second coord (RA, DEC)
 - implement send_command() for all modes of operation
     E. - calibration
     C. - navigate to
-- check how coordinates are being sent as uint16s by printing
-- need to develop calibration algorithm with andy
-- A. need to def coords_to_send() to format angle of declin. and ra to a two byte package to send
 - # read coordinates returned, in manual steer and nav_to
-- implement a method of handling a non integer entered for coordinates to send (i.e. go to 0,0 by default?
-    - error occurs in line 481 destination = [,]
-    https://stackoverflow.com/questions/5025399/python-2-7-try-and-except-valueerror?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
 - implement a 'SEND_THRU_DSN' function that returns the data parameter you pass in
 - ensure all error handling is taken care of such that no disconnection can occur
-- change all simulated ACK's to either string OR ints... str() is safeer for iterating
 '''
 
 from __future__ import print_function
@@ -40,7 +32,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM14'
+scope_COM = 'COM15'
 
 #communication variables
 COMS_BAUD = 1200 #set baudrate of communication between all devices # limited by DSN
@@ -221,11 +213,13 @@ def telescope_sim_response(mode, system_select = 0):
         time.sleep(WAITING_TIME)
         print("telescope received: " + str(rx_data))
 
-        if (not mode == CALIBRATION):
+        if (mode == SUCCESS_ACK):
+            telescope.writelines(str(mode)) 
+            print("sent ack")
+        elif (not (mode == CALIBRATION)):
             #send response from telescope
             telescope.writelines(str(SUCCESS_ACK))
-            print("sent ack")
-        else:
+        else: ## MAY BE A REDUNDANT CASE
             telescope.writelines(str(rx_data))
             time.sleep(WAITING_TIME)
             print("sent " + str(rx_data))
@@ -236,13 +230,13 @@ def telescope_sim_response(mode, system_select = 0):
             if system_select == 'p':
                 telescope.writelines(str(1))
             elif system_select == 'o':
-                opower_state = not opower_state
+                opower_state = 1 - opower_state
                 telescope.writelines(str(opower_state))
             elif system_select == 'i':
-                ipower_state = not ipower_state
+                ipower_state = 1 - ipower_state
                 telescope.writelines(str(ipower_state))
     
-        elif mode == MANUAL or mode == NAVIGATE_TO:
+        elif (mode == MANUAL) or (mode == NAVIGATE_TO):
             print('expect to receive current coordinates from scope')
 ##        telescope.writelines(str(rx_data))
 ##        print("sent rx_data")
@@ -301,6 +295,9 @@ def calibrate():
                 '''
                 print('Telescope moved yaw [right]; enter roll correction angle (clockwise):')
                 rollCorrection = raw_input()
+
+                if rollCorrection == "":
+                    rollCorrection = 0;
 
                 print('Correct roll by ' + str(rollCorrection) + ' degrees? (y/n)' )
 
@@ -457,7 +454,7 @@ def power_cycle():
             print( "received data: " + str(ack))
 
             if (not (ack == '')):    
-                if (int(ack) == SUCCESS_ACK):
+                if (ack == str(SUCCESS_ACK)):
                     print("All subsystems power cycled, success\n")
                     success = BT_SERIAL.readlines()
                     print("power cycle success: " + str(success))
@@ -483,7 +480,7 @@ def power_cycle():
                 print ("timeout error; a = " + str(a))
 
             if (not (ack == '')):    
-                if (int(ack) == SUCCESS_ACK):
+                if (ack == str(SUCCESS_ACK)):
                     print("Orientation control power cycled, success\n")
                     state_received = None
 
@@ -514,7 +511,7 @@ def power_cycle():
                 print ("timeout error; a = " + str(a))
 
             if (not (ack == '')):    
-                if (int(ack) == SUCCESS_ACK):
+                if (ack == str(SUCCESS_ACK)):
                     print("Imaging control power cycled, success\n")
                     state_received = None
 
@@ -593,7 +590,7 @@ def manual_steer():
 
             decision = 0
 
-            while (not(decision == 'y') or (decision == 'n')):
+            while (not(decision == 'y') and not (decision == 'n')):
                 decision = raw_input()
 
             if (decision == 'y'):
@@ -614,7 +611,7 @@ def manual_steer():
                     print ("timeout error; a = " + str(a))
 
                 if (not (ack == '')):    
-                    if (int(ack) == SUCCESS_ACK):
+                    if (ack == str(SUCCESS_ACK)):
                         print("Manual steer successful\n")
                         return
                     else:
@@ -661,32 +658,66 @@ def navigate_to():
         dec = raw_input()
 
         if (ra == 'm' or dec == 'm'):
-            break
+            key = 'm'
         else:
-            destination = [int(ra), int(dec)]  
-            if (send_command(NAVIGATE_TO, destination) == -1): 
-                print("error\n")
-            
-            time.sleep(WAITING_TIME)
-            ack = None
-            a=0
-            while (ack == None and a < WAITING_TIMEOUT):
-                ack = BT_SERIAL.read()
-                a = a + 1
+            try:
+                ra = int(ra)
+            except ValueError:
+                ra = 0
 
-            if (a > WAITING_TIMEOUT):
-                print ("timeout error; a = " + str(a))
+            try:
+                dec = int(dec)
+            except ValueError:
+                dec = 0
+                
+            destination = [ra, dec]
 
-            if (not (ack == '')):    
-                if (int(ack) == SUCCESS_ACK):
-                    coordinates = [0,0] # read coordinates returned, here
+            print('\nMove ' + "angleDec: " + str(dec) + " rightAsc: " + str(ra)\
+                  + ' (deltas)? (y/n to confirm)')
 
-                    print("MOVED TO " + str(coordinates[0]) + ", success\n")
-                    #now read coords
+            decision = 0
+
+            while (not(decision == 'y') and not(decision == 'n')):
+                decision = raw_input()
+
+            if (decision == 'y'):
+                if (send_command(NAVIGATE_TO, destination) == -1): 
+                    print("error\n")
+                
+                time.sleep(WAITING_TIME)
+                ack = None
+                a=0
+                while (ack == None and a < WAITING_TIMEOUT):
+                    ack = BT_SERIAL.read()
+                    a = a + 1
+
+                if (a > WAITING_TIMEOUT):
+                    print ("timeout error; a = " + str(a))
+
+                if (not (ack == '')):    
+                    if (ack == str(SUCCESS_ACK)):
+
+                        '''
+                        while (not (bit == " ")):
+                            RxCoords = rcvdCoords + BT_SERIAL.read()
+                        '''
+                        
+                        RxCoords = [0,0] # read coordinates returned, here
+
+                        print("MOVED TO " + str(RxCoords[0]) + "," + str(RxCoords[1])+ " success\n")
+                        #now read coords
+                    else:
+                        print("Incorrect message received from bluetooth")
                 else:
-                    print("Incorrect message received from bluetooth")
-            else:
-                print('NACK received')
+                    print('NACK received')
+
+                key = 'm' #signal done
+                    
+            elif (decision == 'n'):
+                #retry entry
+                print("Send a new move command: ")
+                
+            
 
 '''
 #THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
@@ -772,9 +803,11 @@ while True:
                 4. Navigate to point \n\
                 5. Shutdown \n\
                 6. Save")
-
-        state = int(raw_input())
-    
+        try:
+            state = int(raw_input())
+        except ValueError:
+            state = MENU
+            
     elif state == CALIBRATION:
         #enter Calibration mode
         calibrate()
