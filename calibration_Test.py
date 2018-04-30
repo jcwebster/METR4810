@@ -223,7 +223,6 @@ def send_command(mode, command, angle = 0):
     else:
         print("error opening a serial port")
         return -1
-
     
     
 def telescope_sim_response(mode):
@@ -236,7 +235,7 @@ def telescope_sim_response(mode):
         if mode == SUCCESS_ACK:
             telescope.writelines(str(mode)) 
             time.sleep(WAITING_TIME)
-        elif mode == CALIBRATION:
+        elif mode == CALIBRATION: ##WILL NEVER EXECUTE BC SUCCESS_ACK AND CALIBRATION ARE == 1
             telescope.writelines(str(rx_data))
             time.sleep(WAITING_TIME)
             print("sent " + str(rx_data))
