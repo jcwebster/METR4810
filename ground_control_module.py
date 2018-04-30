@@ -17,7 +17,14 @@
 - design getCommandAndValueto work for each one of my functions on ground
 - could implement a check statement on pyserial.write() statements (ret num of bytes written) to ensure
     that bytes written == len(data_sent)
+
+TROUBLESHOOTING:
+1. if the initial connection doesn't work to connect to Scope Blutooth, try again.
+2. If "" recvd from DSN, and it freezes in sending... Swap the CP2102 COM ports
+
 '''
+
+
 
 from __future__ import print_function
 import os
@@ -35,7 +42,10 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM15'
+scope_COM = 'COM14'
+
+#dsn_test variables
+DSN_TEST_CHAR = '1'
 
 #communication variables
 COMS_BAUD = 1200 #set baudrate of communication between all devices # limited by DSN
@@ -58,6 +68,7 @@ MANUAL = 3
 NAVIGATE_TO = 4
 SHUTDOWN = 5
 SAVE = 6
+TEST_DSN = 7
 
 state = 0
 
@@ -214,7 +225,7 @@ def telescope_sim_response(mode, system_select = 0):
     if ((telescope.isOpen()) and (BT_SERIAL.isOpen())):
         bit = telescope.read()
         rx_data = bit
-        while(not (bit == "") or not (bit == '\n'):
+        while(not (bit == "") or not (bit == '\n')):
             bit = telescope.read()
             rx_data = rx_data + str(bit)
 
@@ -279,11 +290,12 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
     convertedRA = np.uint16(deg_to_16bit(userRA))
     convertedDEC = np.uint16(deg_to_16bit(userDEC))
         
-'''
-optional: convert hrs:min:sec to decimal:
-A = (hours * 15) + (minutes * 0.25) + (seconds * 0.004166)
-B = ( ABS(Dec_degrees) + (Dec_minutes / 60) + (Dec_seconds / 3600)) * SIGN(Dec_Degrees)
-'''
+    '''
+    optional: convert hrs:min:sec to decimal:
+    A = (hours * 15) + (minutes * 0.25) + (seconds * 0.004166)
+    B = ( ABS(Dec_degrees) + (Dec_minutes / 60) + (Dec_seconds / 3600)) * SIGN(Dec_Degrees)
+    '''
+
     if TESTING:
         print ('converted ' + str(userRA) + ',' + str(userDEC) + ' to ' \
            + str(convertedRA) + ',' + str(convertedDEC) + '.')
@@ -745,8 +757,6 @@ def navigate_to():
                 #retry entry
                 print("Send a new move command: ")
                 
-            
-
 '''
 #THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
 '''
@@ -761,6 +771,30 @@ def save_image():
     
     print("Mission successful = " + acked)
     
+'''
+SENDS A USER DEFINED CHAR TO DSN BLOCK AND WAITS FOR REPLY
+PRINTS THE RECVD CHAR ONCE RECEIVED
+'''
+def test_DSN():
+    global TESTING
+    recvd = None
+##    if TESTING:
+##        device = telescope #could be adapted for global use
+##    else:
+    device = DSN_SERIAL
+    
+    print("sending to DSN...")
+    global DSN_TEST_CHAR
+    DSN_SERIAL.writelines(DSN_TEST_CHAR)
+    print('sent ' + DSN_TEST_CHAR)
+    print('waiting...')
+    time.sleep(SERIAL_TXRX_WAIT*2)
+
+    while recvd == None:
+        recvd = device.readline()
+        
+    print("Received from DSN: " + recvd + '\n')
+    return recvd
 
 '''*********************************************'''        
 '''              INITIALISATIONS                '''
@@ -796,8 +830,8 @@ BT_SERIAL = serial.Serial( #used for testing right now
 
 if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
                 
-    print("Computer CP2102 connected to: " + DSN_SERIAL.portstr + ", baudrate: " + str(DSN_SERIAL.baudrate))
-    print("Bluetooth " + bt_device + " connected to: " + BT_SERIAL.portstr + ", baudrate: " + str(BT_SERIAL.baudrate))
+    print("Computer connected to DSN on port: " + DSN_SERIAL.portstr + ", baudrate: " + str(DSN_SERIAL.baudrate))
+    print("Telescope " + bt_device + " connected to bluetooth via: " + BT_SERIAL.portstr + ", baudrate: " + str(BT_SERIAL.baudrate))
 else:
     print("Failed to open a serial port")
 
@@ -830,7 +864,8 @@ while True:
                 3. Manual free steering \n\
                 4. Navigate to point \n\
                 5. Shutdown \n\
-                6. Save")
+                6. Save \n\
+                7. test_DSN()")
         try:
             state = int(raw_input())
         except ValueError:
@@ -878,6 +913,9 @@ while True:
         state = MENU
     elif state == SHUTDOWN:
         break
+    elif state == TEST_DSN:
+        test_DSN()
+        state = MENU
 print("closing serial ports..")
 DSN_SERIAL.close()
 BT_SERIAL.close()
