@@ -16,7 +16,7 @@ SUCCESS_ACK = 1 # NEED TO ESTABLISH AN ACK for success or failure
 SERIAL_TXRX_WAIT = 0.5  # 500ms delay sending/reading serial
 DSN_DELAY = 1
 RX_TIMEOUT = 9999
-scope_COM = 'COM14'
+scope_COM = 'COM15'
 
 TESTING = 1
 TEST_DSN = 7
@@ -61,20 +61,21 @@ PRINTS THE RECVD CHAR ONCE RECEIVED
 '''
 def test_DSN():
     global TESTING
-    recvd = None
+    recvd = ""
 
     
     print("sending to DSN...")
     global DSN_TEST_CHAR
+    time1 = time.time()
     DSN_SERIAL.writelines(DSN_TEST_CHAR)
     print('sent ' + DSN_TEST_CHAR)
     print('waiting...')
     time.sleep(SERIAL_TXRX_WAIT)
 
-    while recvd == None:
+    while recvd == "":
         recvd = device.readline()
-        
-    print("Received from DSN: " + recvd + '\n')
+        time2 = time.time()
+    print("Received from DSN: " + recvd + ' after ' + str((time2-time1)) + ' seconds, datatype '+ str(type(recvd)) +'\n')
     return recvd
 
 a=0
