@@ -24,6 +24,7 @@
         error;
     continue
 - changed all ACKs and recvd to initialise as = "", and while ack == "" instead of None
+        - realized that serial.readline() would return an empty string and make the variable not == None
 TROUBLESHOOTING:
 1. if the initial connection doesn't work to connect to Scope Blutooth, try again.
 2. If "" recvd from DSN, and it freezes in sending... Swap the CP2102 COM ports
@@ -195,20 +196,21 @@ def send_command(mode, command):
         ##    if TESTING:
         ##        device = telescope #could be adapted for global use
         ##    else:
-            device = DSN_SERIAL
+            device = DSN_SERIAL # unnecessary...
             
-            print("sending to DSN...")
+            print("sending test char to DSN...")
             global DSN_TEST_CHAR
+            time1 = time.time()
             DSN_SERIAL.writelines(DSN_TEST_CHAR)
             print('sent ' + DSN_TEST_CHAR)
             print('waiting...')
-            time.sleep(SERIAL_TXRX_WAIT*2)
+            time.sleep(SERIAL_TXRX_WAIT)
 
             while recvd == "":
                 recvd = device.readline()
-                
-            print("Received from DSN: " + recvd + '\n')
-            return recvd
+                time2 = time.time()
+            print("Received from DSN: " + recvd + ' after ' + str((time2-time1)) + ' seconds.\n')
+            retval = 1
         else:
             print("Invalid mode")
             ret_val = -1
@@ -217,8 +219,6 @@ def send_command(mode, command):
         if TESTING:
             if mode == POWER_CYCLING:
                 telescope_sim_response(mode, system_select=command)
-            elif mode == CALIBRATION:
-                telescope_sim_response(SUCCESS_ACK)
             else:
                 telescope_sim_response(mode)
             print( "**SIMULATING SCOPE RESPONSE**")
@@ -268,16 +268,8 @@ def telescope_sim_response(mode, system_select = 0):
         time.sleep(SERIAL_TXRX_WAIT)
         print("telescope received: " + str(rx_data))
 
-        if (mode == SUCCESS_ACK):
-            telescope.writelines(str(mode)) 
-            print("sent ack")
-        elif (not (mode == CALIBRATION)):
-            #send default response from telescope
-            telescope.writelines(str(SUCCESS_ACK))
-##        else: ## MAY BE A REDUNDANT CASE
-##            telescope.writelines(str(rx_data))
-##            time.sleep(SERIAL_TXRX_WAIT)
-##            print("sent " + str(rx_data))
+        telescope.writelines(str(SUCCESS_ACK)) 
+        print("SCOPE sent ack")
             
         if mode == POWER_CYCLING:
             global opower_state
@@ -301,7 +293,7 @@ def telescope_sim_response(mode, system_select = 0):
             
             bit = telescope.read()
             rx_data = bit
-            while(not (bit == '\n')): #CAUTION: TEST; may have to swtich to ""?
+            while(not (bit == '\n' or bit == "")): #CAUTION: TEST; may have to swtich back to not a and not b
                 bit = telescope.read()
                 rx_data = rx_data + str(bit)
 
@@ -957,8 +949,9 @@ while True:
         break
     
     elif state == TEST_DSN:
-        DSN_test()
+        send_command(TEST_DSN)
         state = MENU
+        
 print("closing serial ports..")
 DSN_SERIAL.close()
 BT_SERIAL.close()
