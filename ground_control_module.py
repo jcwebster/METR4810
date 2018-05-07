@@ -72,10 +72,10 @@ current_coords = [0, 0]
 MENU =          0
 CALIBRATION =   1
 POWER_CYCLING = 2
-DELTA_STEER =        3
+DELTA_STEER =   3
 NAVIGATE_TO =   4
 SAVE =          5
-DSN_TEST_STATE =      6
+DSN_TEST_STATE =6
 SHUTDOWN =      7
 
 state = 0
@@ -938,7 +938,7 @@ def test_DSN():
         recvd = DSN_SERIAL.readline()
         time2 = time.time()
         
-    print("Received from DSN: " + recvd + 'after ' + str(time2-time1) + ' seconds\n')
+    print("Received from DSN: " + recvd + ' after ' + str(time2-time1) + ' seconds\n')
     return recvd
 
 '''*********************************************'''        
@@ -1036,7 +1036,7 @@ while True:
         #exit if key 'e' is received or alternate key
         #state = int(raw_input())
 
-    elif state == Relative angle adjustment - :
+    elif state == DELTA_STEER:
         #enable free steering
         print("Use 'w', 's', 'a', and 'd' keys to steer a relative number of degrees. \n\
                 Use j/k to adjust the step value you wish to change by.")
