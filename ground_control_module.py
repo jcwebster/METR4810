@@ -12,19 +12,12 @@
     E. - calibration
     C. - navigate to
 - # read coordinates returned, in manual steer and nav_to
+- implement a 'SEND_THRU_DSN' function that returns the data parameter you pass in
 - ensure all error handling is taken care of such that no disconnection can occur
-- design getCommandAndValue to work for each one of my functions on ground
+- design getCommandAndValueto work for each one of my functions on ground
 - could implement a check statement on pyserial.write() statements (ret num of bytes written) to ensure
     that bytes written == len(data_sent)
-- CAUTION: BE aware that when operating in reality, the command to be sent will be sent imiediately
-    upon receive from DSN block, which means no delay in receiving from cp2102 and sending to scope, and
-    could receive immediately back. Just check delays and handle read/write buffers appropriately
-- implement for all 'send_commands'
-    if not sendCommand():
-        error;
-    continue
-- changed all ACKs and recvd to initialise as = "", and while ack == "" instead of None
-        - realized that serial.readline() would return an empty string and make the variable not == None
+
 TROUBLESHOOTING:
 1. if the initial connection doesn't work to connect to Scope Blutooth, try again.
 2. If "" recvd from DSN, and it freezes in sending... Swap the CP2102 COM ports
@@ -68,14 +61,14 @@ RX_TIMEOUT = 9999
 DEGREE_RESOLUTION = 16
 
 #STATES
-MENU =          0
-CALIBRATION =   1
+MENU = 0
+CALIBRATION = 1
 POWER_CYCLING = 2
-MANUAL =        3
-NAVIGATE_TO =   4
-SAVE =          5
-TEST_DSN =      6
-SHUTDOWN =      7
+MANUAL = 3
+NAVIGATE_TO = 4
+SHUTDOWN = 5
+SAVE = 6
+TEST_DSN = 7
 
 state = 0
 
@@ -105,54 +98,44 @@ def send_command(mode, command):
     ret_val = 0
     if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
         
-        if (mode == CALIBRATION):        
+        if (mode == POWER_CYCLING or mode == SAVE): 
             #send the same command that fnc was passed
             DSN_SERIAL.writelines(str(command))
             time.sleep(SERIAL_TXRX_WAIT)
-            data_to_send = ""
+            data_to_send = None
+            
+            print("sending to DSN...")
+            time.sleep(DSN_DELAY) 
+            data_to_send = DSN_SERIAL.readline()
+            time.sleep(SERIAL_TXRX_WAIT)
 
-            if TESTING:
-                print("sending to DSN...")
-                time.sleep(DSN_DELAY) 
-            while data_to_send == "":
-                data_to_send = DSN_SERIAL.readline()
-                time.sleep(SERIAL_TXRX_WAIT)
-##            print("sending to DSN...")
-##            time.sleep(DSN_DELAY) 
-##            data_to_send = DSN_SERIAL.readline()
-##            time.sleep(SERIAL_TXRX_WAIT)
-
+            #send data that was received back through cp2102
             print(data_to_send + " received from DSN, sending...")
             BT_SERIAL.writelines(data_to_send)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
-            
-        elif (mode == POWER_CYCLING or mode == SAVE): 
+        elif (mode == CALIBRATION):        
             #send the same command that fnc was passed
             DSN_SERIAL.writelines(str(command))
             time.sleep(SERIAL_TXRX_WAIT)
-            data_to_send = ""
-
-            if TESTING:
-                print("sending to DSN...")
-                time.sleep(DSN_DELAY) 
-            while data_to_send == "":
-                data_to_send = DSN_SERIAL.readline()
-                time.sleep(SERIAL_TXRX_WAIT)
+            data_to_send = None
+            
+            print("sending to DSN...")
+            time.sleep(DSN_DELAY) 
+            data_to_send = DSN_SERIAL.readline()
+            time.sleep(SERIAL_TXRX_WAIT)
 
             #send data that was received back through cp2102
-            print(data_to_send + " sent and received from DSN, sending...")
+            print(data_to_send + " received from DSN, sending...")
             BT_SERIAL.writelines(data_to_send)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
-
         elif ((mode == MANUAL) or (mode == NAVIGATE_TO)):
             print(str(command[0]) + str(command[1]))
             print("Steering to coords [" + str(command[0]) + ","\
                   + str(command[1]) + "]...")
-            
-            # should move this formatting to the function for better readability
-            formatted_coords = convert_to_uint16_coords(userRA = command[0], userDEC = command[1])
+
+            formatted_coords = convertToUint16Coords(userRA = command[0], userDEC = command[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
             DSN_SERIAL.writelines('z' + str(formatted_coords[0])) #ends with '\n'
@@ -164,7 +147,7 @@ def send_command(mode, command):
 ##              Ensure 0deg roll is maintained
 ##            DSN_SERIAL.writelines('x' + str(formatted_coords[0]))
             time.sleep(SERIAL_TXRX_WAIT)
-            data_to_send = ""
+            data_to_send = None
             
             print("waiting...")
             time.sleep(DSN_DELAY) #could remove
@@ -189,28 +172,7 @@ def send_command(mode, command):
             BT_SERIAL.writelines(rx_data2)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
-
-        elif (mode == TEST_DSN):
-            recvd = ""
-            #global TESTING
-        ##    if TESTING:
-        ##        device = telescope #could be adapted for global use
-        ##    else:
-            device = DSN_SERIAL # unnecessary...
             
-            print("sending test char to DSN...")
-            global DSN_TEST_CHAR
-            time1 = time.time()
-            DSN_SERIAL.writelines(DSN_TEST_CHAR)
-            print('sent ' + DSN_TEST_CHAR)
-            print('waiting...')
-            time.sleep(SERIAL_TXRX_WAIT)
-
-            while recvd == "":
-                recvd = device.readline()
-                time2 = time.time()
-            print("Received from DSN: " + recvd + ' after ' + str((time2-time1)) + ' seconds.\n')
-            retval = 1
         else:
             print("Invalid mode")
             ret_val = -1
@@ -219,6 +181,8 @@ def send_command(mode, command):
         if TESTING:
             if mode == POWER_CYCLING:
                 telescope_sim_response(mode, system_select=command)
+            elif mode == CALIBRATION:
+                telescope_sim_response(SUCCESS_ACK)
             else:
                 telescope_sim_response(mode)
             print( "**SIMULATING SCOPE RESPONSE**")
@@ -233,10 +197,10 @@ def send_command(mode, command):
 This function checks for a received ACK from telescope with a prescribed timeout
 '''
 def check_ACK():
-    ack = ""
+    ack = None
     a=0
 ##    BT_SERIAL.read() #CAUTION; EXTRA
-    while (ack == "" and a < RX_TIMEOUT):
+    while (ack == None and a < RX_TIMEOUT):
         ack = BT_SERIAL.read()
         a = a + 1
 
@@ -268,8 +232,16 @@ def telescope_sim_response(mode, system_select = 0):
         time.sleep(SERIAL_TXRX_WAIT)
         print("telescope received: " + str(rx_data))
 
-        telescope.writelines(str(SUCCESS_ACK)) 
-        print("SCOPE sent ack")
+        if (mode == SUCCESS_ACK):
+            telescope.writelines(str(mode)) 
+            print("sent ack")
+        elif (not (mode == CALIBRATION)):
+            #send default response from telescope
+            telescope.writelines(str(SUCCESS_ACK))
+##        else: ## MAY BE A REDUNDANT CASE
+##            telescope.writelines(str(rx_data))
+##            time.sleep(SERIAL_TXRX_WAIT)
+##            print("sent " + str(rx_data))
             
         if mode == POWER_CYCLING:
             global opower_state
@@ -293,7 +265,7 @@ def telescope_sim_response(mode, system_select = 0):
             
             bit = telescope.read()
             rx_data = bit
-            while(not (bit == '\n' or bit == "")): #CAUTION: TEST; may have to swtich back to not a and not b
+            while(not (bit == '\n')): #CAUTION: TEST; may have to swtich to ""?
                 bit = telescope.read()
                 rx_data = rx_data + str(bit)
 
@@ -307,7 +279,7 @@ def telescope_sim_response(mode, system_select = 0):
 THIS FUNCTION OPTIONALLY PROMPTS USER FOR COORDS OR TAKES IN DEGREE VALUES
 AND CONVERTS THEM TO A FORMATTED uint16 TO SEND to TELESCOPE FOR NAVIGATION
 '''
-def convert_to_uint16_coords(userRA = 0, userDEC = 0):
+def convertToUint16Coords(userRA = 0, userDEC = 0):
     if (userRA == 0 and (userDEC == 0)):
         print('Please enter angle of right ascension in degrees (RA): ')
         userRA = raw_input()
@@ -363,7 +335,6 @@ def calibrate():
                     and calculate the angle of correction manually and enter it here
                 '''
                 print('Telescope moved yaw [right]; enter roll correction angle (clockwise):')
-                # use image feed to see if roll needs correction
                 rollCorrection = raw_input()
 
                 if rollCorrection == "":
@@ -398,7 +369,6 @@ def calibrate():
                 print('Telescope steering to vertical... \n\r Calibrating pitch...')
                 print('Adjust pitch? (type j/k to inc/dec degree value or enter if ok)')
 
-                #use image feed to determine if pitch correction is needed
                 key = raw_input()
                 adjustPitch = 0
                 done = 0
@@ -513,9 +483,9 @@ def power_cycle():
 
 ##            time.sleep(SERIAL_TXRX_WAIT)
 
-            ack = ""
+            ack = None
             a=0
-            while (ack == "" and a < RX_TIMEOUT):
+            while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
             
@@ -541,9 +511,9 @@ def power_cycle():
 
 ##            time.sleep(SERIAL_TXRX_WAIT)
             
-            ack = ""
+            ack = None
             a=0
-            while (ack == "" and a < RX_TIMEOUT):
+            while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
 
@@ -553,9 +523,9 @@ def power_cycle():
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
                     print("Orientation control power cycled, success\n")
-                    state_received = ""
+                    state_received = None
 
-                    while (state_received == ""):
+                    while (state_received == None):
                         state_received = BT_SERIAL.readlines()  #@andy: need to send a 0/1 for state and \n         
 
                     opower_state = state_received
@@ -572,9 +542,9 @@ def power_cycle():
 
 ##            time.sleep(SERIAL_TXRX_WAIT)
             
-            ack = ""
+            ack = None
             a=0
-            while (ack == "" and a < RX_TIMEOUT):
+            while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
 
@@ -584,9 +554,9 @@ def power_cycle():
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
                     print("Imaging control power cycled, success\n")
-                    state_received = ""
+                    state_received = None
 
-                    while (state_received == ""):
+                    while (state_received == None):
                         state_received = BT_SERIAL.readlines()  #@andy: need to send a 0/1 for state and \n         
 
                     ipower_state = state_received
@@ -610,7 +580,6 @@ def power_cycle():
     return
 '''
 #THIS FUNCTION IS USED FOR STEERING THE SCOPE MANUALLY
-should change to direct entry as delta, then send directly as delta+currentattitude
 '''
 def manual_steer():
     print("Steering mode (press 'm' to return to main menu):\n")
@@ -666,16 +635,16 @@ def manual_steer():
                 decision = raw_input()
 
             if (decision == 'y'):
-                #WAS REVERSED
-                coords = [rightAsc, angleDec]
-
+                coords = [angleDec, rightAsc]
+##CAUTION: need to implement xyz_to_Orbital function here on coords
+                ## and send orbital coords
                 if (send_command(MANUAL, coords) == -1): 
                     print("error\n")
                 
                 time.sleep(SERIAL_TXRX_WAIT)
-                ack = ""
+                ack = None
                 a=0
-                while (ack == "" and a < RX_TIMEOUT):
+                while (ack == None and a < RX_TIMEOUT):
                     ack = BT_SERIAL.read()
                     a = a + 1
 
@@ -699,8 +668,8 @@ def manual_steer():
                 #retry entry
                 print("Send a new move command: ")
                 
-'''                state_received = "" #moved from above last 'elif'
-                while (state_received == ""):
+'''                state_received = None #moved from above last 'elif'
+                while (state_received == None):
                     state_received = BT_SERIAL.readline()  #@andy: need to send a 0/1 for state and \n             
                     success = BT_SERIAL.readline()         # then send SUCCESS ACK
 
@@ -756,9 +725,9 @@ def navigate_to():
                 if (send_command(NAVIGATE_TO, destination) == -1): 
                     print("error\n")
                 
-                ack = ""
+                ack = None
                 a=0
-                while (ack == "" and a < RX_TIMEOUT):
+                while (ack == None and a < RX_TIMEOUT):
                     ack = BT_SERIAL.read()
                     a = a + 1
 
@@ -768,10 +737,7 @@ def navigate_to():
                 if (not (ack == '')):    
                     if (ack == str(SUCCESS_ACK)):
 
-
                         '''
-                        #GET RECEIVED COORDINATES HERE
-
                         while (not (bit == " ")):
                             RxCoords = rcvdCoords + BT_SERIAL.read()
                         '''
@@ -799,8 +765,8 @@ def save_image():
     send_command(SAVE, 'x')
 
     #wait for and receive image save ACKnowledgement
-    acked = ""
-    while (acked == ""):
+    acked = None
+    while (acked == None):
         acked = BT_SERIAL.readline()
     
     print("Mission successful = " + acked)
@@ -809,9 +775,9 @@ def save_image():
 SENDS A USER DEFINED CHAR TO DSN BLOCK AND WAITS FOR REPLY
 PRINTS THE RECVD CHAR ONCE RECEIVED
 '''
-def DSN_test():
+def test_DSN():
     global TESTING
-    recvd = ""
+    recvd = None
 ##    if TESTING:
 ##        device = telescope #could be adapted for global use
 ##    else:
@@ -824,7 +790,7 @@ def DSN_test():
     print('waiting...')
     time.sleep(SERIAL_TXRX_WAIT*2)
 
-    while recvd == "":
+    while recvd == None:
         recvd = device.readline()
         
     print("Received from DSN: " + recvd + '\n')
@@ -899,7 +865,7 @@ while True:
                 4. Navigate to point \n\
                 5. Shutdown \n\
                 6. Save \n\
-                7. DSN_test()")
+                7. test_DSN()")
         try:
             state = int(raw_input())
         except ValueError:
@@ -947,11 +913,9 @@ while True:
         state = MENU
     elif state == SHUTDOWN:
         break
-    
     elif state == TEST_DSN:
-        send_command(TEST_DSN)
+        test_DSN()
         state = MENU
-        
 print("closing serial ports..")
 DSN_SERIAL.close()
 BT_SERIAL.close()
