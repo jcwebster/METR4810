@@ -1,7 +1,12 @@
 '''
 THIS SCRIPT IS FOR TESTING SENDING COMMANDS TO THE MOTOR VIA HC06
+
+User enters 1 or 2 and then the character command for motors
+
+The script requires pyserial to be installed.
+Set up the bluetooth connection by finding the Bluetooth COM port under
+Devices and Printers --> Device--> Device Properties
 '''
-##testing send_command by sending a list
 
 from __future__ import print_function
 import os
@@ -13,24 +18,10 @@ TESTING = 0
 
 #communication variables
 COMS_BAUD = 1200
-usbTTL_COM = 'COM3'
 bluetooth_COM = 'COM10'
 
 CALIBRATION = 1
 
-def calibrate():
-    print("Calibration mode\n")
-    #calibrate here...
-    print("Enter a char to send: \n")
-    char_to_send = raw_input()
-
-    if (send_command(CALIBRATION, char_to_send)):
-        global finished
-        finished = 1
-    else:
-        print("Error in sending command")
-        return
-    
 def send_command(mode, command):
 
     a = 0
@@ -40,8 +31,7 @@ def send_command(mode, command):
  
     return 1
 
-#may need to initialize settings in AT mode here (see todo 2.1 and then send AT+RESET
-#to enter pairing mode... or would this algorithm be used on board...
+## Serial connection initialisation
 bt_ser = serial.Serial( #used for testing right now
     port=bluetooth_COM,\
     baudrate=COMS_BAUD,\
