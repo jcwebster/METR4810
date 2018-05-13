@@ -1,20 +1,14 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
 ##30 Mar 2018
-##Last rev: 290418
+##Last rev: 140518
 ##Author: John Webster
 
 '''TODO:
 - clear the "@andy" comments
-- # read coordinates returned, in Relative angle adjustment -  steer and nav_to
 - ensure all error handling is taken care of such that
-    no disconnection can occur
-- finalize getCommandAndValue on msp430
-- teset how long the wait time needs to be for bootup() and powercycling Telemetry
-- bug in Relative angle adjustment -  steering: inf loop after sending a coordinate pair
-    (after formatting)
-    - also in navigate to
-
+    no disconnection can occur - search for int() casts
+- test how long the wait time needs to be for bootup() and powercycling Telemetry
 
 STARTUP:
 1. Open Windows and command prompt or IDLE. Pair with the telescope
@@ -289,13 +283,14 @@ def send_command(mode, command):
 
         global TESTING
         if TESTING:
+            print( "**SIMULATING SCOPE RESPONSE**")
+
             if mode == POWER_CYCLING:
                 telescope_sim_response(mode, system_select=command)
             elif mode == CALIBRATION:
                 telescope_sim_response(SUCCESS_ACK)
             else:
                 telescope_sim_response(mode)
-            print( "**SIMULATING SCOPE RESPONSE**")
         else:
             print('*not testing, waiting for response from telescope*')
         return ret_val
@@ -323,7 +318,7 @@ def check_ACK():
             if TESTING:
                 print("ACK received by ground control.\n")
         else:
-            print("WHAT ack is this?: " + ack)
+            print("improper ack received: " + ack)
         return 1
     else:
         print('NACK received')
@@ -365,6 +360,9 @@ def telescope_sim_response(mode, system_select = 0):
             elif system_select == 'i':
                 ipower_state = 1 - ipower_state
                 telescope.writelines(str(ipower_state))
+            elif system_select == 't':
+                tpower_state = 1 
+                telescope.writelines(str(tpower_state))
     
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
             bit = telescope.read()
@@ -700,6 +698,7 @@ def power_cycle():
             #get ack before telemetry shuts off
             ack = None
             a=0
+            time.sleep(SERIAL_TXRX_WAIT)
             while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
@@ -712,12 +711,13 @@ def power_cycle():
                     print("Telemetry disconnecting, reconnecting after 10..\n")
                     BT_SERIAL.close() # close the bluetooth connection
 
-                    for x in xrange(4, 0): # sleep 4 seconds
+                    for x in xrange(0, 4): # sleep 4 seconds
                         print (str(x) + '...')
                         time.sleep(1)
-                    
-                    ## try to re-establish BT conenction after time.sleep()
-                    BT_SERIAL = serial.Serial( #used for testing right now
+
+                    global BT_SERIAL
+                    ## try to re-establish BT connection after time.sleep()
+                    BT_SERIAL = serial.Serial( 
                         port=bluetooth_COM,\
                         baudrate=COMS_BAUD,\
                         parity=serial.PARITY_NONE,\
