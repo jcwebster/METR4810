@@ -49,7 +49,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM15'
+scope_COM = 'COM4'
 
 #dsn_test variables
 DSN_TEST_CHAR = '1'
@@ -162,19 +162,20 @@ def send_command(mode, command):
             ret_val = 1
         elif (mode == DELTA_STEER):
             global current_coords
+            
             #add delta command values to current coords
             current_coords[0] = current_coords[0] + command[0]
             current_coords[1] = current_coords[1] + command[1]
+
             #format and send new coords to navigate to
-            
             formatted_coords = convertToUint16Coords(userRA = command[0], userDEC = command[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
-            DSN_SERIAL.writelines('z' + str(formatted_coords[0])) #ends with '\n'
+            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') #ends with '\n'
             time.sleep(SERIAL_TXRX_WAIT)
 
             #rotate about y-axis userDEC degrees
-            DSN_SERIAL.writelines('y' + str(formatted_coords[1]))
+            DSN_SERIAL.writelines(str(formatted_coords[1]))
 
 ##              Ensure 0deg roll is maintained
 ##            DSN_SERIAL.writelines('x' + str(formatted_coords[0]))
@@ -198,23 +199,31 @@ def send_command(mode, command):
                 bit2 = DSN_SERIAL.read()
                 rx_data2 = rx_data2 + str(bit2)
 
+##            axis1, angle1, axis2, angle2 = 0,0,0,0
+##            axis1, angle1 = rx_data.split(",")
+##            axis2, angle2 = rx_data2.split(",")
+##
+##            print(str(axis1) + ' ' + str(angle1) + ' ' + \
+##                  str(axis2) + ' ' + str(angle2) + ' received' )
+
             #send data that was received
             print(str(rx_data) + ',' + str(rx_data2) + " received from DSN, sending...")
+
             try:
                 current_coords[0] = int(rx_data)
             except ValueError:
-                print("couldn't get angle RA")
+                print("couldn't get int angle RA")
                 current_coords[0] = command[0] ## assume near this value
                 
             try:
                 current_coords[1] = int(rx_data2)
             except ValueError:
-                print("couldn't get angle DEC")
+                print("couldn't get int angle DEC")
                 current_coords[1] = command[1] # assume near this value
                 
 ##            BT_SERIAL.writelines(data_to_send)
-            BT_SERIAL.writelines(rx_data)
-            BT_SERIAL.writelines(rx_data2)
+            BT_SERIAL.writelines('z' + rx_data)
+            BT_SERIAL.writelines('y' + rx_data2)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
         elif (mode == NAVIGATE_TO):
@@ -226,11 +235,11 @@ def send_command(mode, command):
             formatted_coords = convertToUint16Coords(userRA = command[0], userDEC = command[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
-            DSN_SERIAL.writelines('z' + str(formatted_coords[0])) #ends with '\n'
+            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') #ends with '\n'
             time.sleep(SERIAL_TXRX_WAIT)
 
             #rotate about y-axis userDEC degrees
-            DSN_SERIAL.writelines('y' + str(formatted_coords[1]))
+            DSN_SERIAL.writelines(str(formatted_coords[1]))
 
 ##              Ensure 0deg roll is maintained
 ##            DSN_SERIAL.writelines('x' + str(formatted_coords[0]))
@@ -269,8 +278,8 @@ def send_command(mode, command):
                 current_coords[1] = command[1] # assume near this value
                 
 ##            BT_SERIAL.writelines(data_to_send)
-            BT_SERIAL.writelines(rx_data)
-            BT_SERIAL.writelines(rx_data2)
+            BT_SERIAL.writelines('z' + rx_data)
+            BT_SERIAL.writelines('y' + rx_data2)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
             
@@ -358,22 +367,23 @@ def telescope_sim_response(mode, system_select = 0):
                 telescope.writelines(str(ipower_state))
     
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
-            print('expect to receive current coordinates from scope')
-            #read and send back first sent coordinate here:
-            telescope.writelines(str(rx_data))
-            time.sleep(SERIAL_TXRX_WAIT)
-            print("sent " + str(rx_data))
-            #read and send back second sent coordinate here:
-            
             bit = telescope.read()
-            rx_data = bit
+            rx_data2 = bit
             while(not(bit == "") and not (bit == '\n')): #CAUTION: TEST; may have to swtich to ""?
                 bit = telescope.read()
-                rx_data = rx_data + str(bit)
+                rx_data2 = rx_data + str(bit)
+            print("and " + str(rx_data2))
 
-            telescope.writelines(str(rx_data))
+            print('expect to receive current coordinates from scope')
+            #**read and send back first sent coordinate here:
+            telescope.writelines(str(40960) + "\n")
             time.sleep(SERIAL_TXRX_WAIT)
-            print("sent " + str(rx_data))
+            print("sent 40960 (45) to represent angle without axis:" + str(rx_data))
+
+            #**send back second sent coordinate here:
+            telescope.writelines(str(65536))
+            time.sleep(SERIAL_TXRX_WAIT)
+            print("sent 65536 (180) to represent angle without axis: " + str(rx_data2))
 ##        telescope.writelines(str(rx_data))
 ##        print("sent rx_data")
 
@@ -407,13 +417,26 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
     return coords
 
  
-#CONVERTS DEGREES TO A SCALED VALUE FROM 0 TO 2^DEGREE_RESOLUTION
-
+'''
+CONVERTS DEGREES TO A SCALED VALUE FROM 0 TO 2^DEGREE_RESOLUTION
+'''
 def deg_to_16bit(degrees):
     global DEGREE_RESOLUTION
+    convertedVal = 0 
     convertedVal = (2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1))
-    print('degrees, convertedVal: ' + str(degrees) + ',' + str(convertedVal))
+    if TESTING:
+        print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
     return convertedVal
+
+'''
+CONVERTS A uint16 SCALED VALUE to degrees
+'''
+def uint16_to_deg(uint16Value):
+    global DEGREE_RESOLUTION
+    convertedDegrees = (uint16Value - 2**(DEGREE_RESOLUTION-1)) * 360 / float(2**DEGREE_RESOLUTION)
+    if TESTING:
+        print('degrees, convertedVal: ' + str(convertedDegrees) + '<-' + str(uint16Value))
+    return convertedDegrees
 
 '''
 FUNCTION FOR CALIBRATING THE TELESCOPE'S ORIENTATION SYSTEM
@@ -802,6 +825,13 @@ def delta_steer():
                 if (not (ack == '')):    
                     if (ack == str(SUCCESS_ACK)):
                         print("DELTA_STEER steer successful\n")
+
+                        returned_ra = get_coord_from_scope()
+                        current_coords[0] = uint16_to_deg(returned_ra)
+
+                        returned_dec = get_coord_from_scope()
+                        current_coords[1] = uint16_to_deg(returned_dec)
+                        print(current_coords)
                         return
                     else:
                         print("DELTA_STEER steer did not rcv SUCCESS_ACK")
@@ -829,6 +859,7 @@ def delta_steer():
                     print("Failed to send move command")
                 return
 '''
+
 '''             
 #THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
 '''
@@ -885,15 +916,15 @@ def navigate_to():
                 if (not (ack == '')):    
                     if (ack == str(SUCCESS_ACK)):
 
-                        '''
-                        while (not (bit == " ")):
-                            RxCoords = rcvdCoords + BT_SERIAL.read()
-                        '''
-                        
-                        RxCoords = [0,0] # read coordinates returned, here
+                        print("Navigate to, successful\n")
 
-                        print("MOVED TO " + str(RxCoords[0]) + "," + str(RxCoords[1])+ " success\n")
-                        #now read coords
+                        returned_ra = get_coord_from_scope()
+                        current_coords[0] = uint16_to_deg(returned_ra)
+
+                        returned_dec = get_coord_from_scope()
+                        current_coords[1] = uint16_to_deg(returned_dec)
+                        print("MOVED TO " + str(current_coords))
+
                     else:
                         print("Incorrect message received from bluetooth")
                 else:
@@ -906,7 +937,7 @@ def navigate_to():
                 print("Send a new move command: ")
                 
 '''
-#THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
+THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
 '''
 def save_image():
     print("Capturing image...\n")
@@ -941,6 +972,30 @@ def test_DSN():
     print("Received from DSN: " + recvd + ' after ' + str(time2-time1) + ' seconds\n')
     return recvd
 
+'''
+THIS FUNCTION READS AN INTEGER VALUE FROM THE TELESCOPE COMPORT
+'''
+def get_coord_from_scope():
+    bit = BT_SERIAL.read()
+    rx_data = bit
+    while(not (bit == "") and not (bit == '\n')):
+        bit = BT_SERIAL.read()
+        rx_data = rx_data + str(bit)
+
+    time.sleep(SERIAL_TXRX_WAIT)
+    
+    if TESTING:
+        print("Received from scope: " + str(rx_data))
+
+    angleCoordinate = 0
+    
+    try:
+        angleCoordinate = int(rx_data)
+    except ValueError:
+        print("couldn't get int angle RA")
+        angleCoordinate = 0 ## reset to 0
+
+    return angleCoordinate
 '''*********************************************'''        
 '''              INITIALISATIONS                '''
 '''*********************************************'''
