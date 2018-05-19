@@ -9,6 +9,10 @@
 - ensure all error handling is taken care of such that
     no disconnection can occur - search for int() casts
 - test how long the wait time needs to be for bootup() and powercycling Telemetry
+- *AFTER HC06 IS RESTARTED ON TELESCOPE,
+    MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS
+- * BUG in telescope_sim_response:
+    turning power states into lists. Just don't do this on actual telescope
 
 STARTUP:
 1. Open Windows and command prompt or IDLE. Pair with the telescope
@@ -99,12 +103,15 @@ def bootup():
 ##CAUTION: TEST
     a = 0
     data_stream = ""
+    data2 = ""
     if  (BT_SERIAL.isOpen()):
         while a < RX_TIMEOUT:
             data_stream = data_stream + BT_SERIAL.readline() + " "
+            if TESTING:
+                data2  = data2 + telescope.readline() + " "
             a = a + 1
 
-        print (data_stream)
+        print (data_stream + data2)
     else:
         print("error: could not connect")
     
@@ -355,9 +362,19 @@ def telescope_sim_response(mode, system_select = 0):
             if system_select == 'p':
                 telescope.writelines(str(1))
             elif system_select == 'o':
+                try:            
+                    opower_state = int(opower_state)
+                except ValueError:
+                    opower_state = 0
+
                 opower_state = 1 - opower_state
                 telescope.writelines(str(opower_state))
             elif system_select == 'i':
+                try:            
+                    ipower_state = int(ipower_state)
+                except ValueError:
+                    ipower_state = 0
+
                 ipower_state = 1 - ipower_state
                 telescope.writelines(str(ipower_state))
             elif system_select == 't':
@@ -367,9 +384,9 @@ def telescope_sim_response(mode, system_select = 0):
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
             bit = telescope.read()
             rx_data2 = bit
-            while(not(bit == "") and not (bit == '\n')): #CAUTION: TEST; may have to swtich to ""?
+            while(not(bit == "") and not (bit == '\n')):
                 bit = telescope.read()
-                rx_data2 = rx_data + str(bit)
+                rx_data2 = rx_data2 + str(bit)
             print("and " + str(rx_data2))
 
             print('expect to receive current coordinates from scope')
@@ -695,6 +712,7 @@ def power_cycle():
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
+            
             #get ack before telemetry shuts off
             ack = None
             a=0
@@ -728,7 +746,7 @@ def power_cycle():
                 else:
                     print("Telemetry system power did not send SUCCESS_ACK")
             else:
-                print('NACK receieved')
+                print('NACK received')
         elif system_select == 'm': #RESET MICROCONTROLLER 
             print("RESETTING MSP430...\n")
 
@@ -753,6 +771,7 @@ def power_cycle():
     global state
     state = 0
     return
+
 '''
 #THIS FUNCTION IS USED FOR STEERING THE SCOPE MANUALLY by adjusting the angle
 '''
@@ -939,6 +958,7 @@ def navigate_to():
 '''
 THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
 '''
+'''
 def save_image():
     print("Capturing image...\n")
     send_command(SAVE, 'x')
@@ -949,7 +969,8 @@ def save_image():
         acked = BT_SERIAL.readline()
     
     print("Mission successful = " + acked)
-    
+'''
+
 '''
 SENDS A USER DEFINED CHAR TO DSN BLOCK AND WAITS FOR REPLY
 PRINTS THE RECVD CHAR ONCE RECEIVED
@@ -1067,7 +1088,7 @@ while True:
                 2. Subsystem power management \n\
                 3. Relative angle adjustment -  free steering \n\
                 4. Navigate to point \n\
-                5. Save \n\
+                5. Save (disabled) \n\
                 6. test_DSN()\n\
                 7. Shutdown ")
         try:
@@ -1111,11 +1132,13 @@ while True:
         #exit when....
     elif state == SAVE:
 
-        #need to implement a method of interrupting to save...
+        '''#need to implement a method of interrupting to save...
         if save_image():
             print ('image save successful')
-        
+        '''
+        print("disabled")
         state = MENU
+        
     elif state == SHUTDOWN:
         break
     elif state == DSN_TEST_STATE:
