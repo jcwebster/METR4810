@@ -223,13 +223,13 @@ def send_command(mode, command):
             try:
                 current_coords[0] = int(rx_data)
             except ValueError:
-                print("couldn't get int angle RA")
+                print("ERROR: couldn't get int angle RA")
                 current_coords[0] = command[0] ## assume near this value
                 
             try:
                 current_coords[1] = int(rx_data2)
             except ValueError:
-                print("couldn't get int angle DEC")
+                print("ERROR: couldn't get int angle DEC")
                 current_coords[1] = command[1] # assume near this value
                 
 ##            BT_SERIAL.writelines(data_to_send)
@@ -279,13 +279,13 @@ def send_command(mode, command):
             try:
                 current_coords[0] = int(rx_data)
             except ValueError:
-                print("couldn't get angle RA")
+                print("ERROR: couldn't get angle RA")
                 current_coords[0] = command[0] ## assume near this value
                 
             try:
                 current_coords[1] = int(rx_data2)
             except ValueError:
-                print("couldn't get angle DEC")
+                print("ERROR: couldn't get angle DEC")
                 current_coords[1] = command[1] # assume near this value
                 
 ##            BT_SERIAL.writelines(data_to_send)
@@ -313,7 +313,7 @@ def send_command(mode, command):
         return ret_val
     
     else:
-        print("error opening a serial port")
+        print("ERROR: error opening a serial port")
         return -1
 
 '''
@@ -424,14 +424,14 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
             userRA = float(userRA)
         except ValueError:
             userRA = 0;
-            print("not a valid number")
+            print("ERROR: not a valid number")
         print('Please enter angle of declination in degrees (DEC): ')
         userDEC = raw_input()
         try:
             userDEC = float(userDEC)
         except ValueError:
             userDEC = 0;
-            print("not a valid number")
+            print("ERROR: not a valid number")
 
 
     convertedRA = np.uint16(deg_to_16bit(userRA))
@@ -497,7 +497,7 @@ def calibrate():
             send_command(CALIBRATION, CALIBRATE_ROLL)
             time.sleep(BT_TXRX_WAIT)
             if (not check_ACK()):
-                print ('error - no ack. Returning to main menu.')
+                print ('ERROR:  - no ack. Returning to main menu.')
                 return
             
             while (not doneRoll):
@@ -518,12 +518,12 @@ def calibrate():
                     rollCorrection = float(rollCorrection)
                 except ValueError:
                     rollCorrection = 0;
-                    print("invalid roll adjust angle")
+                    print("ERROR: invalid roll adjust angle")
 
                 decision = raw_input()
 
                 while (not(decision == 'y') and not(decision == 'n')):
-                    print("invalid input")
+                    print("iERROR: nvalid input")
                     decision = raw_input()
 
                 if (decision == 'y'):
@@ -553,7 +553,7 @@ def calibrate():
             send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
             time.sleep(BT_TXRX_WAIT)
             if (not check_ACK()):
-                print ('error - no ack. Returning to main menu.')
+                print ('ERROR:  - no ack. Returning to main menu.')
                 return
             
             while (not donePitch):
@@ -606,7 +606,7 @@ def calibrate():
             send_command(CALIBRATION, CALIBRATE_YAW)
             time.sleep(BT_TXRX_WAIT)
             if (not check_ACK()):
-                print ('error - no ack. Returning to main menu.')
+                print ('ERROR:  - no ack. Returning to main menu.')
                 return
 
             while (not doneYaw):
@@ -695,7 +695,7 @@ def power_cycle():
         if system_select == 'p': #POWER CYCLE ALL SUBSYSTEMS
             print("All systems will be rebooted now...")
             if (send_command(POWER_CYCLING, system_select) == -1):
-                print("error\n")
+                print("ERROR: error\n")
 
             time.sleep(BT_TXRX_WAIT)
 
@@ -719,9 +719,9 @@ def power_cycle():
                         success = 0
                     print("power cycle success: " + str(success))
                 else:
-                    print("Incorrect message received from bluetooth")
+                    print("ERROR: Incorrect message received from bluetooth")
             else:
-                print('NACK received')
+                print('ERROR: NACK received')
         elif system_select == 'o': #TOGGLE ORIENTATION CONTROL POWER
             print("Toggling orientation control system power...\n")
 
@@ -750,15 +750,15 @@ def power_cycle():
                             state_received = 0
                     opower_state = state_received
                 else:
-                    print("Orientation system power did not send SUCCESS_ACK")
+                    print("ERROR: Orientation system power did not send SUCCESS_ACK")
             else:
-                print('NACK received')
+                print('ERROR: NACK received')
                 
         elif system_select == 'i': #TOGGLE IMAGING SUBSYSTEM POWER
             print("Toggling imaging system power...\n")
 
             if (send_command(POWER_CYCLING, system_select) == -1):
-                print("error\n")
+                print("ERROR: error\n")
             time.sleep(BT_TXRX_WAIT)
             
             ack = None
@@ -768,7 +768,7 @@ def power_cycle():
                 a = a + 1
 
             if (a > RX_TIMEOUT):
-                print ("timeout error; a = " + str(a))
+                print ("ERROR: timeout error; a = " + str(a))
 
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
@@ -782,31 +782,29 @@ def power_cycle():
                             state_received = 0
                     ipower_state = state_received
                 else:
-                    print("Imaging system power did not send SUCCESS_ACK")
+                    print("ERROR: Imaging system power did not send SUCCESS_ACK")
             else:
-                print('NACK receieved')
+                print('ERROR: NACK receieved')
         elif system_select == 't': #TOGGLE TELEMETRY SUBSYSTEM POWER
             print("Toggling telemetry system power...\n")
 
             if (send_command(POWER_CYCLING, system_select) == -1):
-                print("error\n")
+                print("ERROR: error\n")
             time.sleep(BT_TXRX_WAIT)
 
-            
             #get ack before telemetry shuts off
             ack = None
             a=0
-            time.sleep(SERIAL_TXRX_WAIT)
             while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
 
             if (a > RX_TIMEOUT):
-                print ("timeout error; a = " + str(a))
+                print ("ERROR: timeout error; a = " + str(a))
 
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
-                    print("Telemetry disconnecting, reconnecting after 10..\n")
+                    print("ACK recvd. Telemetry disconnecting, reconnecting after 10..\n")
                     BT_SERIAL.close() # close the bluetooth connection
 
                     for x in xrange(0, 4): # sleep 4 seconds
@@ -828,14 +826,14 @@ def power_cycle():
                         telescope.readline()
                         telescope.readline()
                 else:
-                    print("Telemetry system power did not send SUCCESS_ACK")
+                    print("ERROR: Telemetry system power toggle did not send SUCCESS_ACK")
             else:
-                print('NACK received')
+                print('ERROR: NACK received')
         elif system_select == 'm': #RESET MICROCONTROLLER 
             print("RESETTING MSP430...\n")
 
             if (send_command(POWER_CYCLING, system_select) == -1):
-                print("error\n")
+                print("ERROR: error\n")
 
             ##uC RESTARTS, USE BOOTUP READ LINE FUNCTION
             bootup() #clear buffer of startup data stream
@@ -937,13 +935,13 @@ def delta_steer():
                         print(current_coords)
                         return
                     else:
-                        print("DELTA_STEER steer did not rcv SUCCESS_ACK")
+                        print("ERROR: DELTA_STEER steer did not rcv SUCCESS_ACK")
                         print("Returning to Menu")
                         global state
                         state = 0
                         return
                 else:
-                    print('nack recvd')
+                    print('ERROR: nack recvd')
                     
             elif (decision == 'n'):
                 #retry entry
@@ -1005,7 +1003,7 @@ def navigate_to():
 
             if (decision == 'y'):
                 if (send_command(NAVIGATE_TO, destination) == -1): 
-                    print("error\n")
+                    print("ERROR: error\n")
                 
                 ack = None
                 a=0
@@ -1014,7 +1012,7 @@ def navigate_to():
                     a = a + 1
 
                 if (a > RX_TIMEOUT):
-                    print ("timeout error; a = " + str(a))
+                    print ("ERROR: timeout error; a = " + str(a))
 
                 if (not (ack == '')):    
                     if (ack == str(SUCCESS_ACK)):
@@ -1029,9 +1027,9 @@ def navigate_to():
                         print("MOVED TO " + str(current_coords))
 
                     else:
-                        print("Incorrect message received from bluetooth")
+                        print("ERROR: Incorrect message received from bluetooth")
                 else:
-                    print('NACK received')
+                    print('ERROR: NACK received')
 
                 key = 'm' #signal done
                     
@@ -1097,7 +1095,7 @@ def get_coord_from_scope():
     try:
         angleCoordinate = int(rx_data)
     except ValueError:
-        print("couldn't get int angle RA")
+        print("ERROR: couldn't get int angle RA")
         angleCoordinate = 0 ## reset to 0
 
     return angleCoordinate
@@ -1140,7 +1138,7 @@ if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
     if TESTING:
         print("telescope simulator connected to " + str(telescope.portstr))
 else:
-    print("Failed to open a serial port")
+    print("ERROR: Failed to open a serial port")
 
 ###the code to configure settings would have to be on the micro on board (@Andy)
 ##if (bt_device == "HC06"):
