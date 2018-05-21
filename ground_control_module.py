@@ -31,6 +31,7 @@ TROUBLESHOOTING:
 1. if the initial connection doesn't work to connect to Scope Blutooth, try again.
 2. If "" recvd from DSN, and it freezes in sending... Swap the CP2102 COM ports
     or swap tx/rx (for HC06 and cp2102, rx-rx, tx-tx - confirmed)
+3. If having trouble connecting to HC06, close IDLE window and reopen.
 
 '''
 
@@ -173,13 +174,38 @@ def send_command(mode, command):
             ret_val = 1
         elif (mode == DELTA_STEER):
             global current_coords
+            errorCorrected = 0
             
             #add delta command values to current coords
             current_coords[0] = current_coords[0] + command[0]
             current_coords[1] = current_coords[1] + command[1]
+            while (abs(current_coords[0]) > 180):
+                print("input your desired RA within +/-180:")
+                current_coords[0] = raw_input()
 
+                try:
+                    current_coords[0] = float(current_coords[0])
+                except:
+                    print("you must be trying to anger me... \r\n Setting RA to 0.")
+                    current_coords[0] = 0
+                errorCorrected = 1
+            while (abs(current_coords[1]) > 90):
+                print("input your desired DEC within +/-180:")
+                current_coords[1] = raw_input()
+
+                try:
+                    current_coords[1] = float(current_coords[1])
+                except:
+                    print("you must be trying to anger me... \r\n Setting DEC to 0.")
+                    current_coords[1] = 0
+                errorCorrected = 1
+                
+##            if not errorCorrected:
+##                current_coords[0] = current_coords[0] + command[0]
+##                current_coords[1] = current_coords[1] + command[1]
+            
             #format and send new coords to navigate to
-            formatted_coords = convertToUint16Coords(userRA = command[0], userDEC = command[1])
+            formatted_coords = convertToUint16Coords(userRA = current_coords[0], userDEC = current_coords[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
             DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') #ends with '\n'
@@ -403,12 +429,12 @@ def telescope_sim_response(mode, system_select = 0):
             #**read and send back first sent coordinate here:
             telescope.writelines(str(40960) + "\n")
             time.sleep(SERIAL_TXRX_WAIT)
-            print("sent 40960 (45) to represent angle without axis:" + str(rx_data))
+            print("sent 40960 (45) in place of:" + str(rx_data))
 
             #**send back second sent coordinate here:
             telescope.writelines(str(65536))
             time.sleep(SERIAL_TXRX_WAIT)
-            print("sent 65536 (180) to represent angle without axis: " + str(rx_data2))
+            print("sent 65536 (180) in place of: " + str(rx_data2))
 ##        telescope.writelines(str(rx_data))
 ##        print("sent rx_data")
 
@@ -461,10 +487,10 @@ def deg_to_16bit(degrees):
 
     if (abs(degrees) > 180):
         print("ERROR: Degree value must be within +/- 180 degrees.")
-    else:
-        convertedVal = int((2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1)))
-        if TESTING:
-            print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
+ 
+    convertedVal = int((2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1)))
+    if TESTING:
+        print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
 
     return convertedVal
 
@@ -859,25 +885,16 @@ def power_cycle():
 '''
 def delta_steer():
     print("Steering mode (press 'e' to return to main menu):\n")
+    print(current_coords)
     key = 0
-
-    angleStep = 10
+    angleStep = 1
     angleDec = 0
     rightAsc = 0
-    
     done = 0
-
-    #imagine delay in sending any initial command...
-
+    
     #press a key to count up or down, j\k to adjust increment size...
     while ((not (key == 'e')) and (not done)):
         key = raw_input()
-       # key = ord(getch())
-        #print(key)
-##        while (raw_input() == key):
-##            counter = counter + 1
-##            print(str(counter) + '\r')
-##        degrees = counter * k #k is some scaling factor to convert counter value to degrees
        
         if (key == 'w'):
             angleDec = angleDec + angleStep
@@ -889,11 +906,13 @@ def delta_steer():
             rightAsc = rightAsc - angleStep
         elif (key == 'j'):         #else change angleStep size
             angleStep = angleStep * 2
+            print('anglestep: ' + str(angleStep))
             
         elif (key == 'k'):
             angleStep = angleStep / 2
             if angleStep == 0:
                 angleStep = 0.5
+            print('anglestep: ' + str(angleStep))
 
         print("angleDec: " + str(angleDec) + " rightAsc: " + str(rightAsc)\
               + "\r")
@@ -932,6 +951,7 @@ def delta_steer():
 
                         returned_dec = get_coord_from_scope()
                         current_coords[1] = uint16_to_deg(returned_dec)
+                        print("current_coords: ")
                         print(current_coords)
                         return
                     else:
