@@ -50,7 +50,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM15'
+scope_COM = 'COM4'
 
 #dsn_test variables
 DSN_TEST_CHAR = '1'
@@ -490,20 +490,29 @@ def calibrate():
         if axis_select == '1': #calibrate roll
             print('Calibrating roll...')
             doneRoll = 0
+
+            print("Telescope moving yaw right in 10...")
+            send_command(CALIBRATION, CALIBRATE_ROLL)
+
             while (not doneRoll):
-                send_command(CALIBRATION, CALIBRATE_ROLL)
                 '''
                     response of telescope will either autonomously move yaw right and
                     measure angle to roll, OR user will have to trace the path of motion
                     and calculate the angle of correction manually and enter it here
                 '''
-                print('Telescope moved yaw [right]; enter roll correction angle (clockwise):')
+                print('Enter roll correction angle (clockwise):')
                 rollCorrection = raw_input()
 
                 if rollCorrection == "":
                     rollCorrection = 0;
 
                 print('Correct roll by ' + str(rollCorrection) + ' degrees? (y/n)' )
+
+                try:
+                    rollCorrection = int(rollCorrection)
+                except ValueError:
+                    rollCorrection = 0;
+                    print("invalid roll adjust angle")
 
                 decision = raw_input()
 
@@ -512,11 +521,14 @@ def calibrate():
                     decision = raw_input()
 
                 if (decision == 'y'):
+
+                    #encode rollCorrection
+                    rollCorrection = deg_to_16bit(rollCorrection)
                     send_command(CALIBRATION, rollCorrection) # scope sends ACK when successful
                     doneRoll = 1
 
                     if (not check_ACK()):
-                        print ('error - no ack. returning to main menu')
+                        print ('error - no ack. Returning to main menu.')
                         break
                     else:
                         print('Calibrated Roll')
@@ -526,9 +538,60 @@ def calibrate():
             # Spacecraft should pitch up to gimbal lock, then move down automatically
             # to 0deg pitch
             print('Calibrating pitch...')
+
+            donePitch = 0
+
+            print('Telescope steering to vertical... \n\r ')
+            send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
+
+            while (not donePitch):
+
+                print('Adjust pitch? (type degree value or enter if ok)')
+
+                adjustPitch = raw_input()
+
+                if adjustPitch == "":
+                    adjustPitch = 0;
+
+
+                print('Correct pitch by ' + str(adjustPitch) + ' degrees? (y/n)' )
+
+                try:
+                    adjustPitch = int(adjustPitch)
+                except ValueError:
+                    adjustPitch = 0;
+                    print("invalid pitch adjust angle")
+
+                decision = raw_input()
+
+                while (not(decision == 'y') and not(decision == 'n')):
+                    print("invalid input")
+                    decision = raw_input()
+
+                if (decision == 'y'):
+
+                    #encode adjustPitch
+                    adjustPitch = deg_to_16bit(adjustPitch)
+                    send_command(CALIBRATION, adjustPitch) # scope sends ACK when successful
+                    donePitch = 1
+
+                    if (not check_ACK()):
+                        print ('error - no ack. Returning to main menu.')
+                        break
+                    else:
+                        print('Calibrated pitch.')
+                else: #'n'
+                    print('please reenter pitch correction...')
+
+
+
+
+
+
+            '''
             donePitch = 0
             while (not donePitch):
-                send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
+                send_command(CALIBRATION, CALIBRATE_PITCH) 
                 print('Telescope steering to vertical... \n\r Calibrating pitch...')
                 print('Adjust pitch? (type j/k to inc/dec degree value or enter if ok)')
 
@@ -547,12 +610,21 @@ def calibrate():
                         done = 1
                         print('\nSteer pitch ' + str(adjustPitch) + " degrees? (y/n to confirm)")
 
+                        try:
+                            adjustPitch = int(adjustPitch)
+                        except ValueError:
+                            adjustPitch = 0;
+                            print("invalid pitch adjust angle")
+
                         decision = 0
 
                         while (not(decision == 'y') and not(decision == 'n')):
                             decision = raw_input()
 
                         if (decision == 'y'):
+
+                            #encode adjustPitch
+                            adjustPitch = deg_to_16bit(adjustPitch)
                             send_command(CALIBRATION, adjustPitch) #adjustPitch value will be 0 if good
                               # scope sends ACK when successful
                             if (not check_ACK()):
@@ -575,11 +647,61 @@ def calibrate():
                     elif (key == 'e'):
                         donePitch = 1
                         break
-                      
+            '''               
         elif axis_select == '3': # calibrate yaw
             #spins 360deg to calibrate MAG3110 and then uses N heading to point
             #at 0deg relative to Hawken Gallery
             print('Calibrating yaw...')
+            doneYaw = 0
+
+            send_command(CALIBRATION, CALIBRATE_YAW)
+
+            while (not doneYaw):
+
+                print('Adjust yaw? (clockwise):')
+                yawCorrection = raw_input()
+
+                if yawCorrection == "":
+                    yawCorrection = 0;
+
+                print('Correct yaw by ' + str(yawCorrection) + ' degrees? (y/n)' )
+
+                try:
+                    yawCorrection = int(yawCorrection)
+                except ValueError:
+                    yawCorrection = 0;
+                    print("invalid yaw adjust angle")
+
+                decision = raw_input()
+
+                while (not(decision == 'y') and not(decision == 'n')):
+                    print("invalid input")
+                    decision = raw_input()
+
+                if (decision == 'y'):
+
+                    #encode yawCorrection
+                    yawCorrection = deg_to_16bit(yawCorrection)
+                    send_command(CALIBRATION, yawCorrection) # scope sends ACK when successful
+                    doneYaw = 1
+
+                    if (not check_ACK()):
+                        print ('error - no ack. Returning to main menu.')
+                        break
+                    else:
+                        print('Calibrated Yaw')
+                else: #'n'
+                    print('please reenter yaw correction...')
+
+
+
+
+
+
+
+
+
+            '''         
             doneYaw = 0
             while (not doneYaw):
                 send_command(CALIBRATION, CALIBRATE_YAW) #commands scope to spin 360 to calibrate mag3110
@@ -601,12 +723,20 @@ def calibrate():
                         done = 1
                         print('\nSteer yaw ' + str(adjustYaw) + " degrees? (y/n to confirm)")
 
+                        try:
+                            adjustYaw = int(adjustYaw)
+                        except ValueError:
+                            adjustYaw = 0;
+                            print("invalid yaw adjust angle")
+                            
                         decision = 0
 
                         while (not(decision == 'y') and not(decision == 'n')):
                             decision = raw_input()
 
                         if (decision == 'y'):
+                            #encode adjustYaw
+                            adjustYaw = deg_to_16bit(adjustYaw)
                             send_command(CALIBRATION, adjustYaw) #adjustYaw value will be 0 if good
                               # scope sends ACK when successful
                             if (not check_ACK()):
@@ -629,7 +759,7 @@ def calibrate():
                     elif (key == 'e'):
                         doneYaw = 1
                         break
-       
+           '''
         print("Select an axis to calibrate ('e' to exit): \n\
                 1. Roll \n\
                 2. Pitch \n\
