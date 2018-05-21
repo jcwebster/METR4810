@@ -63,6 +63,7 @@ bt_device = "HC06"
 SUCCESS_ACK = 1 # ACK to be received from telescope on successful operation
 NULLCORRECTION = 'Z'
 SERIAL_TXRX_WAIT = 0.5  # 500ms delay sending/reading serial
+BT_TXRX_WAIT = 0.5
 DSN_DELAY = 1
 RX_TIMEOUT = 999
 
@@ -162,7 +163,7 @@ def send_command(mode, command):
 
             #send data that was received back through cp2102
             print(data_to_send + " received from DSN, sending...")
-            if (data_to_send == 0) or (data_to_send == '0'):
+            if (data_to_send == '32768'):
                 if TESTING:
                     print('sending nullCorrection angle to scope')
                 data_to_send = NULLCORRECTION
@@ -420,25 +421,21 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
         print('Please enter angle of right ascension in degrees (RA): ')
         userRA = raw_input()
         try:
-            userRA = int(userRA)
+            userRA = float(userRA)
         except ValueError:
             userRA = 0;
             print("not a valid number")
         print('Please enter angle of declination in degrees (DEC): ')
         userDEC = raw_input()
         try:
-            userDEC = int(userDEC)
+            userDEC = float(userDEC)
         except ValueError:
             userDEC = 0;
             print("not a valid number")
 
-    if (abs(userRA) > 180) or (abs(userDEC) > 180):
-        print("RA and DEC must be within +/- 180 degrees")
-        convertedRA = 0;
-        convertedDEC = 0;
-    else:
-        convertedRA = np.uint16(deg_to_16bit(userRA))
-        convertedDEC = np.uint16(deg_to_16bit(userDEC))
+
+    convertedRA = np.uint16(deg_to_16bit(userRA))
+    convertedDEC = np.uint16(deg_to_16bit(userDEC))
             
     '''
     optional: convert hrs:min:sec to decimal:
@@ -460,10 +457,15 @@ CONVERTS DEGREES TO A SCALED VALUE FROM 0 TO 2^DEGREE_RESOLUTION
 '''
 def deg_to_16bit(degrees):
     global DEGREE_RESOLUTION
-    convertedVal = 0 
-    convertedVal = (2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1))
-    if TESTING:
-        print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
+    convertedVal = 32768 
+
+    if (abs(degrees) > 180):
+        print("ERROR: Degree value must be within +/- 180 degrees.")
+    else:
+        convertedVal = int((2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1)))
+        if TESTING:
+            print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
+
     return convertedVal
 
 '''
@@ -493,7 +495,11 @@ def calibrate():
 
             print("Telescope moving yaw right in 10...")
             send_command(CALIBRATION, CALIBRATE_ROLL)
-
+            time.sleep(BT_TXRX_WAIT)
+            if (not check_ACK()):
+                print ('error - no ack. Returning to main menu.')
+                return
+            
             while (not doneRoll):
                 '''
                     response of telescope will either autonomously move yaw right and
@@ -509,7 +515,7 @@ def calibrate():
                 print('Correct roll by ' + str(rollCorrection) + ' degrees? (y/n)' )
 
                 try:
-                    rollCorrection = int(rollCorrection)
+                    rollCorrection = float(rollCorrection)
                 except ValueError:
                     rollCorrection = 0;
                     print("invalid roll adjust angle")
@@ -525,11 +531,13 @@ def calibrate():
                     #encode rollCorrection
                     rollCorrection = deg_to_16bit(rollCorrection)
                     send_command(CALIBRATION, rollCorrection) # scope sends ACK when successful
+                    time.sleep(BT_TXRX_WAIT)
+
                     doneRoll = 1
 
                     if (not check_ACK()):
                         print ('error - no ack. Returning to main menu.')
-                        break
+                        return
                     else:
                         print('Calibrated Roll')
                 else: #'n'
@@ -543,7 +551,11 @@ def calibrate():
 
             print('Telescope steering to vertical... \n\r ')
             send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
-
+            time.sleep(BT_TXRX_WAIT)
+            if (not check_ACK()):
+                print ('error - no ack. Returning to main menu.')
+                return
+            
             while (not donePitch):
 
                 print('Adjust pitch? (type degree value or enter if ok)')
@@ -557,7 +569,7 @@ def calibrate():
                 print('Correct pitch by ' + str(adjustPitch) + ' degrees? (y/n)' )
 
                 try:
-                    adjustPitch = int(adjustPitch)
+                    adjustPitch = float(adjustPitch)
                 except ValueError:
                     adjustPitch = 0;
                     print("invalid pitch adjust angle")
@@ -573,81 +585,18 @@ def calibrate():
                     #encode adjustPitch
                     adjustPitch = deg_to_16bit(adjustPitch)
                     send_command(CALIBRATION, adjustPitch) # scope sends ACK when successful
+                    time.sleep(BT_TXRX_WAIT)
+
                     donePitch = 1
 
                     if (not check_ACK()):
                         print ('error - no ack. Returning to main menu.')
-                        break
+                        return
                     else:
                         print('Calibrated pitch.')
                 else: #'n'
                     print('please reenter pitch correction...')
 
-
-
-
-
-
-            '''
-            donePitch = 0
-            while (not donePitch):
-                send_command(CALIBRATION, CALIBRATE_PITCH) 
-                print('Telescope steering to vertical... \n\r Calibrating pitch...')
-                print('Adjust pitch? (type j/k to inc/dec degree value or enter if ok)')
-
-                key = raw_input()
-                adjustPitch = 0
-                done = 0
-                while (not(done)):
-                    if (key == 'j'):
-                        adjustPitch = adjustPitch + 1
-                    elif (key == 'k'):
-                        adjustPitch = adjustPitch - 1
-
-                    print('adjustPitch (deg): ' + str(adjustPitch))
-                    key = raw_input()
-                    if (key == ""):
-                        done = 1
-                        print('\nSteer pitch ' + str(adjustPitch) + " degrees? (y/n to confirm)")
-
-                        try:
-                            adjustPitch = int(adjustPitch)
-                        except ValueError:
-                            adjustPitch = 0;
-                            print("invalid pitch adjust angle")
-
-                        decision = 0
-
-                        while (not(decision == 'y') and not(decision == 'n')):
-                            decision = raw_input()
-
-                        if (decision == 'y'):
-
-                            #encode adjustPitch
-                            adjustPitch = deg_to_16bit(adjustPitch)
-                            send_command(CALIBRATION, adjustPitch) #adjustPitch value will be 0 if good
-                              # scope sends ACK when successful
-                            if (not check_ACK()):
-                                print ('error - no ack. returning to main menu')
-                                break
-                            else: #recvd ack
-                                print('Calibrated pitch\n\r Happy? (y/n)')
-                                ans = 0
-                                while (not(ans == 'y') and not(ans == 'n')):
-                                    ans = raw_input()
-
-                                if (ans == 'y'):
-                                    donePitch = 1
-                                    print("Done calibrating Pitch")
-                                else:
-                                    print ("Retrying pitch calibration...")
-                        else:
-                            print ("retry entry or 'e' to exit")
-                        
-                    elif (key == 'e'):
-                        donePitch = 1
-                        break
-            '''               
         elif axis_select == '3': # calibrate yaw
             #spins 360deg to calibrate MAG3110 and then uses N heading to point
             #at 0deg relative to Hawken Gallery
@@ -655,6 +604,10 @@ def calibrate():
             doneYaw = 0
 
             send_command(CALIBRATION, CALIBRATE_YAW)
+            time.sleep(BT_TXRX_WAIT)
+            if (not check_ACK()):
+                print ('error - no ack. Returning to main menu.')
+                return
 
             while (not doneYaw):
 
@@ -667,7 +620,7 @@ def calibrate():
                 print('Correct yaw by ' + str(yawCorrection) + ' degrees? (y/n)' )
 
                 try:
-                    yawCorrection = int(yawCorrection)
+                    yawCorrection = float(yawCorrection)
                 except ValueError:
                     yawCorrection = 0;
                     print("invalid yaw adjust angle")
@@ -683,83 +636,19 @@ def calibrate():
                     #encode yawCorrection
                     yawCorrection = deg_to_16bit(yawCorrection)
                     send_command(CALIBRATION, yawCorrection) # scope sends ACK when successful
+                    time.sleep(BT_TXRX_WAIT)
+
                     doneYaw = 1
 
                     if (not check_ACK()):
                         print ('error - no ack. Returning to main menu.')
-                        break
+                        return
                     else:
                         print('Calibrated Yaw')
                 else: #'n'
                     print('please reenter yaw correction...')
 
 
-
-
-
-
-
-
-
-            '''         
-            doneYaw = 0
-            while (not doneYaw):
-                send_command(CALIBRATION, CALIBRATE_YAW) #commands scope to spin 360 to calibrate mag3110
-                #scope should automatically steer to 0deg in Hawken
-                print('Adjust yaw? (type j/k to inc/dec degree value or enter if ok)')
-
-                key = raw_input()
-                adjustYaw = 0
-                done = 0
-                while (not(done)):
-                    if (key == 'j'):
-                        adjustYaw = adjustYaw + 1
-                    elif (key == 'k'):
-                        adjustYaw = adjustYaw - 1
-
-                    print('adjustYaw (deg): ' + str(adjustYaw))
-                    key = raw_input()
-                    if (key == ""):
-                        done = 1
-                        print('\nSteer yaw ' + str(adjustYaw) + " degrees? (y/n to confirm)")
-
-                        try:
-                            adjustYaw = int(adjustYaw)
-                        except ValueError:
-                            adjustYaw = 0;
-                            print("invalid yaw adjust angle")
-                            
-                        decision = 0
-
-                        while (not(decision == 'y') and not(decision == 'n')):
-                            decision = raw_input()
-
-                        if (decision == 'y'):
-                            #encode adjustYaw
-                            adjustYaw = deg_to_16bit(adjustYaw)
-                            send_command(CALIBRATION, adjustYaw) #adjustYaw value will be 0 if good
-                              # scope sends ACK when successful
-                            if (not check_ACK()):
-                                print ('error - no ack. returning to main menu')
-                                break
-                            else: #recvd ack
-                                print('Calibrated yaw\n\r Happy? (y/n)')
-                                ans = 0
-                                while (not(ans == 'y') and not(ans == 'n')):
-                                    ans = raw_input()
-
-                                if (ans == 'y'):
-                                    doneYaw = 1
-                                    print("Done calibrating yaw")
-                                else:
-                                    print ("Retrying yaw calibration...")
-                        else:
-                            print ("retry entry or 'e' to exit")
-                        
-                    elif (key == 'e'):
-                        doneYaw = 1
-                        break
-           '''
         print("Select an axis to calibrate ('e' to exit): \n\
                 1. Roll \n\
                 2. Pitch \n\
