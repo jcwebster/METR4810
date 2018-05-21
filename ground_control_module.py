@@ -370,7 +370,7 @@ def telescope_sim_response(mode, system_select = 0):
             global opower_state
             global ipower_state
             if system_select == 'p':
-                telescope.writelines(str(1))
+                telescope.writelines('1')
             elif system_select == 'o':
                 try:            
                     opower_state = int(opower_state)
@@ -390,7 +390,7 @@ def telescope_sim_response(mode, system_select = 0):
             elif system_select == 't':
                 tpower_state = 1 
                 telescope.writelines(str(tpower_state))
-    
+
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
             bit = telescope.read()
             rx_data2 = bit
@@ -658,7 +658,7 @@ def calibrate():
     print("Finished calibration!")
     if TESTING: #clear buffer - maybe remove TESTING and always do this?
         rcvd = BT_SERIAL.readline()
-        time.sleep(SERIAL_TXRX_WAIT)
+        time.sleep(BT_TXRX_WAIT)
         print("received:" + str(rcvd))
 
     global state
@@ -697,7 +697,7 @@ def power_cycle():
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
 
-##            time.sleep(SERIAL_TXRX_WAIT)
+            time.sleep(BT_TXRX_WAIT)
 
             ack = None
             a=0
@@ -713,7 +713,10 @@ def power_cycle():
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
                     print("All subsystems power cycled, success\n")
-                    success = BT_SERIAL.readlines()
+                    try:
+                        success = int(BT_SERIAL.read())
+                    except ValueError:
+                        success = 0
                     print("power cycle success: " + str(success))
                 else:
                     print("Incorrect message received from bluetooth")
@@ -724,8 +727,7 @@ def power_cycle():
 
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
-
-##            time.sleep(SERIAL_TXRX_WAIT)
+            time.sleep(BT_TXRX_WAIT)
             
             ack = None
             a=0
@@ -742,8 +744,10 @@ def power_cycle():
                     state_received = None
 
                     while (state_received == None):
-                        state_received = BT_SERIAL.readlines()  #@andy: need to send a 0/1 for state and \n         
-
+                        try:
+                            state_received = int(BT_SERIAL.read())
+                        except ValueError:
+                            state_received = 0
                     opower_state = state_received
                 else:
                     print("Orientation system power did not send SUCCESS_ACK")
@@ -755,8 +759,7 @@ def power_cycle():
 
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
-
-##            time.sleep(SERIAL_TXRX_WAIT)
+            time.sleep(BT_TXRX_WAIT)
             
             ack = None
             a=0
@@ -773,8 +776,10 @@ def power_cycle():
                     state_received = None
 
                     while (state_received == None):
-                        state_received = BT_SERIAL.readlines()  #@andy: need to send a 0/1 for state and \n         
-
+                        try:
+                            state_received = int(BT_SERIAL.read())
+                        except ValueError:
+                            state_received = 0
                     ipower_state = state_received
                 else:
                     print("Imaging system power did not send SUCCESS_ACK")
@@ -785,6 +790,7 @@ def power_cycle():
 
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("error\n")
+            time.sleep(BT_TXRX_WAIT)
 
             
             #get ack before telemetry shuts off
@@ -816,7 +822,11 @@ def power_cycle():
                         stopbits=serial.STOPBITS_ONE,\
                         bytesize=serial.EIGHTBITS,\
                             timeout=0)   
-                     
+
+                    if TESTING:
+                        time.sleep(2)
+                        telescope.readline()
+                        telescope.readline()
                 else:
                     print("Telemetry system power did not send SUCCESS_ACK")
             else:
