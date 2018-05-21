@@ -1,10 +1,13 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
 ##30 Mar 2018
-##Last rev: 140518
+##Last rev: 210518
 ##Author: John Webster
 
-'''TODO:
+'''
+TODO:
+-NEED TO SEND A NULLCORRECTION ANGLE CHARACTER INSTEAD OF '0'
+- test 'yaw' correction angle functionality
 - clear the "@andy" comments
 - ensure all error handling is taken care of such that
     no disconnection can occur - search for int() casts
@@ -47,7 +50,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM4'
+scope_COM = 'COM15'
 
 #dsn_test variables
 DSN_TEST_CHAR = '1'
@@ -58,6 +61,7 @@ DSN_COM = 'COM3'
 bluetooth_COM = 'COM5'
 bt_device = "HC06"
 SUCCESS_ACK = 1 # ACK to be received from telescope on successful operation
+NULLCORRECTION = 'Z'
 SERIAL_TXRX_WAIT = 0.5  # 500ms delay sending/reading serial
 DSN_DELAY = 1
 RX_TIMEOUT = 999
@@ -158,6 +162,11 @@ def send_command(mode, command):
 
             #send data that was received back through cp2102
             print(data_to_send + " received from DSN, sending...")
+            if (data_to_send == 0) or (data_to_send == '0'):
+                if TESTING:
+                    print('sending nullCorrection angle to scope')
+                data_to_send = NULLCORRECTION
+                
             BT_SERIAL.writelines(data_to_send)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
@@ -410,13 +419,27 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
     if (userRA == 0 and (userDEC == 0)):
         print('Please enter angle of right ascension in degrees (RA): ')
         userRA = raw_input()
-
+        try:
+            userRA = int(userRA)
+        except ValueError:
+            userRA = 0;
+            print("not a valid number")
         print('Please enter angle of declination in degrees (DEC): ')
         userDEC = raw_input()
-    
-    convertedRA = np.uint16(deg_to_16bit(userRA))
-    convertedDEC = np.uint16(deg_to_16bit(userDEC))
-        
+        try:
+            userDEC = int(userDEC)
+        except ValueError:
+            userDEC = 0;
+            print("not a valid number")
+
+    if (abs(userRA) > 180) or (abs(userDEC) > 180):
+        print("RA and DEC must be within +/- 180 degrees")
+        convertedRA = 0;
+        convertedDEC = 0;
+    else:
+        convertedRA = np.uint16(deg_to_16bit(userRA))
+        convertedDEC = np.uint16(deg_to_16bit(userDEC))
+            
     '''
     optional: convert hrs:min:sec to decimal:
     A = (hours * 15) + (minutes * 0.25) + (seconds * 0.004166)
@@ -550,6 +573,7 @@ def calibrate():
                             print ("retry entry or 'e' to exit")
                         
                     elif (key == 'e'):
+                        donePitch = 1
                         break
                       
         elif axis_select == '3': # calibrate yaw
@@ -560,21 +584,52 @@ def calibrate():
             while (not doneYaw):
                 send_command(CALIBRATION, CALIBRATE_YAW) #commands scope to spin 360 to calibrate mag3110
                 #scope should automatically steer to 0deg in Hawken
+                print('Adjust yaw? (type j/k to inc/dec degree value or enter if ok)')
 
-                if (not check_ACK()):
-                    print ('error - no ack. returning to main menu')
-                    break
-                else: #recvd ack
-                    print('Calibrated yaw\n\r Happy? (y/n)')
-                    ans = 0
-                    while (not(ans == 'y') and not(ans == 'n')):
-                        ans = raw_input()
+                key = raw_input()
+                adjustYaw = 0
+                done = 0
+                while (not(done)):
+                    if (key == 'j'):
+                        adjustYaw = adjustYaw + 1
+                    elif (key == 'k'):
+                        adjustYaw = adjustYaw - 1
 
-                    if (ans == 'y'):
+                    print('adjustYaw (deg): ' + str(adjustYaw))
+                    key = raw_input()
+                    if (key == ""):
+                        done = 1
+                        print('\nSteer yaw ' + str(adjustYaw) + " degrees? (y/n to confirm)")
+
+                        decision = 0
+
+                        while (not(decision == 'y') and not(decision == 'n')):
+                            decision = raw_input()
+
+                        if (decision == 'y'):
+                            send_command(CALIBRATION, adjustYaw) #adjustYaw value will be 0 if good
+                              # scope sends ACK when successful
+                            if (not check_ACK()):
+                                print ('error - no ack. returning to main menu')
+                                break
+                            else: #recvd ack
+                                print('Calibrated yaw\n\r Happy? (y/n)')
+                                ans = 0
+                                while (not(ans == 'y') and not(ans == 'n')):
+                                    ans = raw_input()
+
+                                if (ans == 'y'):
+                                    doneYaw = 1
+                                    print("Done calibrating yaw")
+                                else:
+                                    print ("Retrying yaw calibration...")
+                        else:
+                            print ("retry entry or 'e' to exit")
+                        
+                    elif (key == 'e'):
                         doneYaw = 1
-                        print("Done calibrating Yaw")
-                    else:
-                        print ("Retrying yaw calibration...")
+                        break
+       
         print("Select an axis to calibrate ('e' to exit): \n\
                 1. Roll \n\
                 2. Pitch \n\
