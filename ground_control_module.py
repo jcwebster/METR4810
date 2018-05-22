@@ -16,7 +16,7 @@ TODO:
     MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS
 - * BUG in telescope_sim_response:
     turning power states into lists. Just don't do this on actual telescope
-
+- ENSURE ALL COORDS ARE ENTERED RA, DEC
 STARTUP:
 1. Open Windows and command prompt or IDLE. Pair with the telescope
 2. Plug in the DSN USB_TTL converter on the LS usb if on John's Mac,
@@ -51,7 +51,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM4'
+scope_COM = 'COM15'
 
 #dsn_test variables
 DSN_TEST_CHAR = '1'
@@ -70,7 +70,7 @@ RX_TIMEOUT = 999
 
 #navigation variables
 DEGREE_RESOLUTION = 16
-current_coords = [0, 0]
+current_coords = [0, 0] #stored as RA, DEC
 
 #STATES
 MENU =          0
@@ -190,7 +190,7 @@ def send_command(mode, command):
                     current_coords[0] = 0
                 errorCorrected = 1
             while (abs(current_coords[1]) > 90):
-                print("input your desired DEC within +/-180:")
+                print("input your desired DEC within +/-90:")
                 current_coords[1] = raw_input()
 
                 try:
@@ -249,13 +249,13 @@ def send_command(mode, command):
             try:
                 current_coords[0] = int(rx_data)
             except ValueError:
-                print("ERROR: couldn't get int angle RA")
+                print("ERROR: couldn't convert int angle RA from DSN")
                 current_coords[0] = command[0] ## assume near this value
                 
             try:
                 current_coords[1] = int(rx_data2)
             except ValueError:
-                print("ERROR: couldn't get int angle DEC")
+                print("ERROR: couldn't convert int angle DEC from DSN")
                 current_coords[1] = command[1] # assume near this value
                 
 ##            BT_SERIAL.writelines(data_to_send)
@@ -285,7 +285,6 @@ def send_command(mode, command):
             
             print("waiting...")
             time.sleep(DSN_DELAY) #could remove
-
 
             bit = DSN_SERIAL.read()
             rx_data = bit
@@ -426,15 +425,15 @@ def telescope_sim_response(mode, system_select = 0):
             print("and " + str(rx_data2))
 
             print('expect to receive current coordinates from scope')
-            #**read and send back first sent coordinate here:
+            #**read and send back angle RA coordinate here:
             telescope.writelines(str(40960) + "\n")
             time.sleep(SERIAL_TXRX_WAIT)
             print("sent 40960 (45) in place of:" + str(rx_data))
 
-            #**send back second sent coordinate here:
-            telescope.writelines(str(65536))
+            #**send back angle DEC coordinate here:
+            telescope.writelines(str(38229))
             time.sleep(SERIAL_TXRX_WAIT)
-            print("sent 65536 (180) in place of: " + str(rx_data2))
+            print("sent 38229 (30) in place of: " + str(rx_data2))
 ##        telescope.writelines(str(rx_data))
 ##        print("sent rx_data")
 
@@ -486,7 +485,7 @@ def deg_to_16bit(degrees):
     convertedVal = 32768 
 
     if (abs(degrees) > 180):
-        print("ERROR: Degree value must be within +/- 180 degrees.")
+        print("ERROR: Degree value must be within +/- 180 degrees or within +/-90 for declination.")
  
     convertedVal = int((2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1)))
     if TESTING:
@@ -914,11 +913,11 @@ def delta_steer():
                 angleStep = 0.5
             print('anglestep: ' + str(angleStep))
 
-        print("angleDec: " + str(angleDec) + " rightAsc: " + str(rightAsc)\
+        print("rightAsc: " + str(rightAsc) + ", angleDec: " + str(angleDec) \
               + "\r")
 
         if (key == ""): 
-            print('\nMove ' + "angleDec: " + str(angleDec) + " rightAsc: " + str(rightAsc)\
+            print("\nMove rightAsc: " + str(rightAsc) + ", angleDec: " + str(angleDec) \
                   + ' (deltas)? (y/n to confirm)')
             ##draw a typed picture here of relative angleDec and RA if time
 
@@ -928,7 +927,7 @@ def delta_steer():
                 decision = raw_input()
 
             if (decision == 'y'):
-                coords = [angleDec, rightAsc]
+                coords = [rightAsc, angleDec]
                 if (send_command(DELTA_STEER, coords) == -1): 
                     print("error\n")
                 
@@ -951,7 +950,7 @@ def delta_steer():
 
                         returned_dec = get_coord_from_scope()
                         current_coords[1] = uint16_to_deg(returned_dec)
-                        print("current_coords: ")
+                        print("current_coords (ra, dec): ")
                         print(current_coords)
                         return
                     else:
@@ -1002,13 +1001,15 @@ def navigate_to():
             key = 'm'
         else:
             try:
-                ra = int(ra)
+                ra = float(ra)
             except ValueError:
+                print("could not convert angle to float")
                 ra = 0
 
             try:
-                dec = int(dec)
+                dec = float(dec)
             except ValueError:
+                print("could not convert angle to float")
                 dec = 0
                 
             destination = [ra, dec]
