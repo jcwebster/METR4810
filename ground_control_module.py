@@ -984,37 +984,56 @@ def delta_steer():
 #THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
 '''
 def navigate_to():
-    print("Navigate to point.....\n(press 'm' to return to main menu):\n")
+    print("Navigate to point.....\n(press 'e' to exit):\n")
     angleDec = 0
     rightAsc = 0
     key = '0'
     
     done = 0
 
-    while (not (key == 'm')):
+    while (not (key == 'e')):
+        ra = 0
+        dec = 0
+        
         print("Enter angle of right ascension: ")
         ra = raw_input()
         print("Enter angle of declination")
         dec = raw_input()
 
-        if (ra == 'm' or dec == 'm'):
-            key = 'm'
+        if (ra == 'e' or dec == 'e'):
+            key = 'e'
         else:
             try:
                 ra = float(ra)
             except ValueError:
                 print("could not convert angle to float")
-                ra = 0
+                ra = 181
+                
+            while (abs(ra) > 180):
+                print("Enter angle of right ascension: ")
+                ra = raw_input()
+                try:
+                    ra = float(ra)
+                except ValueError:
+                    print("could not convert angle to float")
 
             try:
                 dec = float(dec)
             except ValueError:
                 print("could not convert angle to float")
-                dec = 0
+                dec = 91
                 
+            while (abs(dec) > 90):
+                print("Enter angle of declination: ")
+                dec = raw_input()
+                try:
+                    dec = float(dec)
+                except ValueError:
+                    print("could not convert angle to float")
+            
             destination = [ra, dec]
 
-            print('\nMove ' + "angleDec: " + str(dec) + " rightAsc: " + str(ra)\
+            print("\nMove to rightAsc: " + str(ra) + ", angleDec: " + str(dec) \
                   + ' (deltas)? (y/n to confirm)')
 
             decision = 0
@@ -1052,7 +1071,7 @@ def navigate_to():
                 else:
                     print('ERROR: NACK received')
 
-                key = 'm' #signal done
+                key = 'e' #signal done
                     
             elif (decision == 'n'):
                 #retry entry
