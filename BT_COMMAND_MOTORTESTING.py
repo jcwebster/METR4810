@@ -2,6 +2,7 @@
 THIS SCRIPT IS FOR TESTING SENDING COMMANDS TO THE MOTOR VIA HC06
 
 User enters 1 or 2 and then the character command for motors
+Enter 3 for automated testing.
 
 The script requires pyserial to be installed.
 Set up the bluetooth connection by finding the Bluetooth COM port under
@@ -44,7 +45,8 @@ bt_ser = serial.Serial( #used for testing right now
 while True:
     print("Enter a char to send, 'p' to exit: \n\
             1: send one copy of letters entered \n\
-            2: send 50 copies of letters entered\n")
+            2: send 50 copies of letters entered\n\
+            3: automate: cycle thru 3 rpms\n")
     char_to_send = raw_input()
 
     if char_to_send == 'p':
@@ -65,6 +67,19 @@ while True:
             char_to_send = raw_input()
 
             send_command(1, char_to_send)
+            
+    elif (char_to_send == '3'): #automate
+        send_command(20, 'w') #increase RPM x20
+        bt_ser.writelines('z') #set rpm
+
+        while True: #infinite loop.. change later
+            bt_ser.writelines('e') # start motor
+            time.sleep(3)
+            bt_ser.writelines('r') # reverse
+            time.sleep(3)
+
+            
+            
     else:
         print("Error in sending command")
 
