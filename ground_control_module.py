@@ -1,22 +1,15 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
 ##30 Mar 2018
-##Last rev: 210518
+##Last rev: 230518
 ##Author: John Webster
 
 '''
 TODO:
--NEED TO SEND A NULLCORRECTION ANGLE CHARACTER INSTEAD OF '0'
-- test 'yaw' correction angle functionality
-- clear the "@andy" comments
-- ensure all error handling is taken care of such that
-    no disconnection can occur - search for int() casts
-- test how long the wait time needs to be for bootup() and powercycling Telemetry
+- test how long the wait time needs to be for power cycling Telemetry
 - *AFTER HC06 IS RESTARTED ON TELESCOPE,
-    MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS
-- * BUG in telescope_sim_response:
-    turning power states into lists. Just don't do this on actual telescope
-- ENSURE ALL COORDS ARE ENTERED RA, DEC
+    MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS on telescope
+
 STARTUP:
 1. Open Windows and command prompt or IDLE. Pair with the telescope
 2. Plug in the DSN USB_TTL converter on the LS usb if on John's Mac,
@@ -51,7 +44,7 @@ import serial
 '''*********************************************'''
 #testing variables:
 TESTING = 1
-scope_COM = 'COM15'
+scope_COM = 'COM4'
 
 #dsn_test variables
 DSN_TEST_CHAR = '1'
@@ -66,7 +59,7 @@ NULLCORRECTION = 'Z'
 SERIAL_TXRX_WAIT = 0.5  # 500ms delay sending/reading serial
 BT_TXRX_WAIT = 0.5
 DSN_DELAY = 1
-RX_TIMEOUT = 999
+RX_TIMEOUT = 99
 
 #navigation variables
 DEGREE_RESOLUTION = 16
@@ -199,10 +192,6 @@ def send_command(mode, command):
                     print("you must be trying to anger me... \r\n Setting DEC to 0.")
                     current_coords[1] = 0
                 errorCorrected = 1
-                
-##            if not errorCorrected:
-##                current_coords[0] = current_coords[0] + command[0]
-##                current_coords[1] = current_coords[1] + command[1]
             
             #format and send new coords to navigate to
             formatted_coords = convertToUint16Coords(userRA = current_coords[0], userDEC = current_coords[1])
@@ -386,10 +375,7 @@ def telescope_sim_response(mode, system_select = 0):
         elif (not (mode == CALIBRATION)):
             #send default response from telescope
             telescope.writelines(str(SUCCESS_ACK))
-##        else: ## MAY BE A REDUNDANT CASE
-##            telescope.writelines(str(rx_data))
-##            time.sleep(SERIAL_TXRX_WAIT)
-##            print("sent " + str(rx_data))
+
             
         if mode == POWER_CYCLING:
             global opower_state
@@ -414,7 +400,7 @@ def telescope_sim_response(mode, system_select = 0):
                 telescope.writelines(str(ipower_state))
             elif system_select == 't':
                 tpower_state = 1 
-                telescope.writelines(str(tpower_state))
+                #telescope.writelines(str(tpower_state))
 
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
             bit = telescope.read()
@@ -434,8 +420,7 @@ def telescope_sim_response(mode, system_select = 0):
             telescope.writelines(str(38229))
             time.sleep(SERIAL_TXRX_WAIT)
             print("sent 38229 (30) in place of: " + str(rx_data2))
-##        telescope.writelines(str(rx_data))
-##        print("sent rx_data")
+
 
 '''
 THIS FUNCTION OPTIONALLY PROMPTS USER FOR COORDS OR TAKES IN DEGREE VALUES
@@ -708,7 +693,7 @@ def power_cycle():
     global opower_state # get orientation power state here
     global ipower_state # get imaging power state here
     print("Select a system to power cycle (press 'e' to exit): \n\
-                'p': Power on all subsystems \n\
+                'p': Toggle power of all subsystems \n\
                 'o': Orientation control \n\
                 'i': Imaging system \n\
                 't': Telemetry system \n\
@@ -718,7 +703,7 @@ def power_cycle():
     while (not(system_select == 'e')):
 
         if system_select == 'p': #POWER CYCLE ALL SUBSYSTEMS
-            print("All systems will be rebooted now...")
+            print("All systems will be toggled now...")
             if (send_command(POWER_CYCLING, system_select) == -1):
                 print("ERROR: error\n")
 
@@ -740,6 +725,9 @@ def power_cycle():
                     print("All subsystems power cycled, success\n")
                     try:
                         success = int(BT_SERIAL.read())
+                        opower_state = int(1 - opower_state)
+                        ipower_state = int(1 - ipower_state)
+
                     except ValueError:
                         success = 0
                     print("power cycle success: " + str(success))
@@ -851,7 +839,8 @@ def power_cycle():
                         telescope.readline()
                         telescope.readline()
                 else:
-                    print("ERROR: Telemetry system power toggle did not send SUCCESS_ACK")
+                    print("ERROR: Telemetry system power toggle did not send \
+                    SUCCESS_ACK, keeping connection open")
             else:
                 print('ERROR: NACK received')
         elif system_select == 'm': #RESET MICROCONTROLLER 
@@ -965,20 +954,6 @@ def delta_steer():
             elif (decision == 'n'):
                 #retry entry
                 print("Send a new move command: ")
-                
-'''                state_received = None #moved from above last 'elif'
-                while (state_received == None):
-                    state_received = BT_SERIAL.readline()  #@andy: need to send a 0/1 for state and \n             
-                    success = BT_SERIAL.readline()         # then send SUCCESS ACK
-
-                if (success == SUCCESS_ACK):
-                    print('Moving ...')
-                    done = 1
-                    print('done')
-                else:
-                    print("Failed to send move command")
-                return
-'''
 
 '''             
 #THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
@@ -1015,12 +990,12 @@ def navigate_to():
                 try:
                     ra = float(ra)
                 except ValueError:
-                    print("could not convert angle to float")
+                    print("could not convert ra to float")
 
             try:
                 dec = float(dec)
             except ValueError:
-                print("could not convert angle to float")
+                print("could not convert dec to float")
                 dec = 91
                 
             while (abs(dec) > 90):
@@ -1029,7 +1004,7 @@ def navigate_to():
                 try:
                     dec = float(dec)
                 except ValueError:
-                    print("could not convert angle to float")
+                    print("could not convert dec to float")
             
             destination = [ra, dec]
 
@@ -1135,7 +1110,7 @@ def get_coord_from_scope():
     try:
         angleCoordinate = int(rx_data)
     except ValueError:
-        print("ERROR: couldn't get int angle RA")
+        print("ERROR: couldn't get integer angle coordinate")
         angleCoordinate = 0 ## reset to 0
 
     return angleCoordinate
@@ -1180,21 +1155,6 @@ if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
 else:
     print("ERROR: Failed to open a serial port")
 
-###the code to configure settings would have to be on the micro on board (@Andy)
-##if (bt_device == "HC06"):
-##    DSN_SERIAL.writelines("AT")
-##    if (DSN_SERIAL.readlines("OK")):
-##        #proceed with next step of configuration
-##        DSN_SERIAL.writelines("AT+NAME=METR4810\r\n")
-##    else:
-##        #check again
-##        DSN_SERIAL.writelines("AT")
-##        if (DSN_SERIAL.readlines("OK"):
-##        #proceed with next step of configuration
-##
-##        else:
-##            print("error, can't connect to " + bt_device)
-##            
 
 '''*********************************************'''        
 '''              MAIN EXECUTIVE                 '''
@@ -1231,8 +1191,8 @@ while True:
         print("Now in power cycling mode: ")
 
         power_cycle()
-        #exit if key 'e' is received or alternate key
-        #state = int(raw_input())
+
+        state = MENU
 
     elif state == DELTA_STEER:
         #enable free steering
@@ -1240,29 +1200,22 @@ while True:
                 Use j/k to adjust the step value you wish to change by.")
         delta_steer()
 
-        print("Now exiting Relative angle adjustment -  steering mode")
+        print("Now exiting angle-adjustment steering mode")
 
         state = MENU
 
     elif state == NAVIGATE_TO:
-        #enter point to point navigation mode
         print("Navigate to...")
         navigate_to()
-        time.sleep(1)
         state = MENU
 
-        #exit when....
     elif state == SAVE:
-
-        '''#need to implement a method of interrupting to save...
-        if save_image():
-            print ('image save successful')
-        '''
         print("disabled")
         state = MENU
         
     elif state == SHUTDOWN:
         break
+    
     elif state == DSN_TEST_STATE:
         test_DSN()
         state = MENU
