@@ -1,30 +1,27 @@
 ##METR4810:: THE JOHN TEBBUTT SPACE TELESCOPE
 ##GROUND_CONTROL_MODULE SOFTWARE
 ##30 Mar 2018
-##Last rev: 230518
+##Last rev: 240518
 ##Author: John Webster
 
 '''
 TODO:
-- test how long the wait time needs to be for power cycling Telemetry
 - *AFTER HC06 IS RESTARTED ON TELESCOPE,
     MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS on telescope
 
 STARTUP:
-1. Open Windows and command prompt or IDLE. Pair with the telescope
-2. Plug in the DSN USB_TTL converter on the LS usb if on John's Mac,
-    or a known COM port on other PC.
-        2.1 Plug in the second USB_TTL converter on the bottom-most
-            USB port on hub if on j's Mac, or a known scope_COM port
-            on other PC
-        2.2 If not testing, plug in DSN block using the DSN Cable
+1. Start Windows and Liclipse, command prompt, or IDLE. Pair with the telescope HC06.
+2. Plug in the DSN USB_TTL converter to a known COM port.
+    2.1 If testing, plug in the second USB_TTL converter in a known scope_COM port
+        on other PC
+    2.2 If not testing, plug in DSN block using the DSN Cable
 3. Run ground_control_module.py
 
-TROUBLESHOOTING:
-1. if the initial connection doesn't work to connect to Scope Blutooth, try again.
+TROUBLESHOOTING when testing:
+1. If the initial connection doesn't work to connect to Scope Bluetooth, try again.
 2. If "" recvd from DSN, and it freezes in sending... Swap the CP2102 COM ports
-    or swap tx/rx (for HC06 and cp2102, rx-rx, tx-tx - confirmed)
-3. If having trouble connecting to HC06, close IDLE window and reopen.
+    or swap tx/rx (for HC06 and cp2102, rx-rx, tx-tx)
+3. If HC06 is busy, close IDLE window and reopen.
 
 '''
 
@@ -42,51 +39,53 @@ import serial
 '''*********************************************'''        
 '''              VARIABLE DECLARATIONS          '''
 '''*********************************************'''
-#testing variables:
+#testing variables#
 TESTING = 1
-scope_COM = 'COM4'
+scope_COM = 'COM15'
 
-#dsn_test variables
+#dsn_test variables#
 DSN_TEST_CHAR = '1'
 
-#communication variables
-COMS_BAUD = 1200 #set baudrate of communication between all devices # limited by DSN
+#communication variables#
+COMS_BAUD = 1200 #set baudrate of communication between all devices; limited by DSN
 DSN_COM = 'COM3'
 bluetooth_COM = 'COM5'
-bt_device = "HC06"
-SUCCESS_ACK = 1 # ACK to be received from telescope on successful operation
+bt_device = 'HC06'
+SUCCESS_ACK = 1         #ACK to be received from telescope on successful operation
 NULLCORRECTION = 'Z'
-SERIAL_TXRX_WAIT = 0.5  # 500ms delay sending/reading serial
+SERIAL_TXRX_WAIT = 0.5  #500ms delay sending/reading serial
 BT_TXRX_WAIT = 0.5
 DSN_DELAY = 1
 RX_TIMEOUT = 99
+
+if not TESTING:
+    bluetooth_COM = 'COM10'
 
 #navigation variables
 DEGREE_RESOLUTION = 16
 current_coords = [0, 0] #stored as RA, DEC
 
 #STATES
-MENU =          0
-CALIBRATION =   1
+MENU = 0
+CALIBRATION = 1
 POWER_CYCLING = 2
-DELTA_STEER =   3
-NAVIGATE_TO =   4
-SAVE =          5
-DSN_TEST_STATE =6
-SHUTDOWN =      7
+DELTA_STEER = 3
+NAVIGATE_TO = 4
+SAVE = 5
+DSN_TEST_STATE = 6
+SHUTDOWN = 7
 
 state = 0
 
-##calibration variables
+#calibration variables#
 CALIBRATE_ROLL = 'F' #commands telescope to steer YawRight and measure angle to correct the roll
-#- or if it doesn't, it waits for an angle to roll sent by user at ground
-CALIBRATE_PITCH = 'G' #scope moves up to lcoking point then steers back down to 0deg pitch 
-CALIBRATE_YAW = 'H'  #scope rotates 360deg to calibrate MAG3110 magnetometer
+CALIBRATE_PITCH = 'G' #scope moves up to locking point then steers back down to 0deg pitch 
+CALIBRATE_YAW = 'H'  #calibrate yaw with MAG3110 magnetometer
 
-##steering variables
+#steering variables#
 counter = 0
 
-##power cycle variables
+#power cycle variables#
 opower_state = 0
 ipower_state = 0
 
@@ -94,12 +93,8 @@ ipower_state = 0
 '''              FUNCTION DEFINITIONS           '''
 '''*********************************************'''
 
-'''
-THIS FUNCTION READS THE DATA STREAM ON BOOTUP FOR 10 SECONDS
-AND DOES NOTHING BUT PRINT THE DATA
-'''
 def bootup():
-##CAUTION: TEST
+    """Reads entire data buffer from Bluetooth device and prints the data"""
     a = 0
     data_stream = ""
     data2 = ""
@@ -113,13 +108,22 @@ def bootup():
         print (data_stream + data2)
     else:
         print("error: could not connect")
-    
-'''
-@brief  sends a command through the DSN block following protocol, 
-        and then once it receives the command from the DSN block, it transmits 
-        it through the bluetooth serial port
-'''
+   
+   
 def send_command(mode, command):
+    """Sends a command through the DSN block and then to telescope
+     
+    Formats data according to mode and sends a command through the DSN block 
+    following protocol, and then once the command is received from the DSN block, 
+    the data is transmitted via bluetooth to the telescope.
+    
+    Args:
+        mode: specifies mode of operation of telescope
+        command: data as relevant to the mode
+    
+    Returns:
+        True if transmitted successfully, false otherwise.
+    """
     ret_val = 0
     if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
 
@@ -165,6 +169,7 @@ def send_command(mode, command):
             BT_SERIAL.writelines(data_to_send)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
+            
         elif (mode == DELTA_STEER):
             global current_coords
             errorCorrected = 0
@@ -182,6 +187,7 @@ def send_command(mode, command):
                     print("you must be trying to anger me... \r\n Setting RA to 0.")
                     current_coords[0] = 0
                 errorCorrected = 1
+                
             while (abs(current_coords[1]) > 90):
                 print("input your desired DEC within +/-90:")
                 current_coords[1] = raw_input()
@@ -197,24 +203,20 @@ def send_command(mode, command):
             formatted_coords = convertToUint16Coords(userRA = current_coords[0], userDEC = current_coords[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
-            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') #ends with '\n'
+            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n')
             time.sleep(SERIAL_TXRX_WAIT)
 
             #rotate about y-axis userDEC degrees
             DSN_SERIAL.writelines(str(formatted_coords[1]))
 
-##              Ensure 0deg roll is maintained
-##            DSN_SERIAL.writelines('x' + str(formatted_coords[0]))
             time.sleep(SERIAL_TXRX_WAIT)
             data_to_send = None
             
             print("waiting...")
             time.sleep(DSN_DELAY) #could remove
 
-
             bit = DSN_SERIAL.read()
             rx_data = bit
-            # CAUTION: need to read twice
             while(not (bit == "\n") and not (bit == "")):
                 bit = DSN_SERIAL.read()
                 rx_data = rx_data + str(bit)
@@ -225,14 +227,6 @@ def send_command(mode, command):
                 bit2 = DSN_SERIAL.read()
                 rx_data2 = rx_data2 + str(bit2)
 
-##            axis1, angle1, axis2, angle2 = 0,0,0,0
-##            axis1, angle1 = rx_data.split(",")
-##            axis2, angle2 = rx_data2.split(",")
-##
-##            print(str(axis1) + ' ' + str(angle1) + ' ' + \
-##                  str(axis2) + ' ' + str(angle2) + ' received' )
-
-            #send data that was received
             print(str(rx_data) + ',' + str(rx_data2) + " received from DSN, sending...")
 
             try:
@@ -247,11 +241,11 @@ def send_command(mode, command):
                 print("ERROR: couldn't convert int angle DEC from DSN")
                 current_coords[1] = command[1] # assume near this value
                 
-##            BT_SERIAL.writelines(data_to_send)
             BT_SERIAL.writelines('z' + rx_data)
             BT_SERIAL.writelines('y' + rx_data2)
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
+            
         elif (mode == NAVIGATE_TO):
             global current_coords
     
@@ -261,23 +255,19 @@ def send_command(mode, command):
             formatted_coords = convertToUint16Coords(userRA = command[0], userDEC = command[1])
 
             #rotate about z-axis userRA degrees - follow right-hand rule for direction
-            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') #ends with '\n'
+            DSN_SERIAL.writelines(str(formatted_coords[0]) + '\n') 
             time.sleep(SERIAL_TXRX_WAIT)
 
             #rotate about y-axis userDEC degrees
             DSN_SERIAL.writelines(str(formatted_coords[1]))
-
-##              Ensure 0deg roll is maintained
-##            DSN_SERIAL.writelines('x' + str(formatted_coords[0]))
             time.sleep(SERIAL_TXRX_WAIT)
             data_to_send = None
             
             print("waiting...")
-            time.sleep(DSN_DELAY) #could remove
+            time.sleep(DSN_DELAY)
 
             bit = DSN_SERIAL.read()
             rx_data = bit
-            # CAUTION: need to read twice
             while(not (bit == "\n") and not (bit == "")):
                 bit = DSN_SERIAL.read()
                 rx_data = rx_data + str(bit)
@@ -300,9 +290,8 @@ def send_command(mode, command):
                 current_coords[1] = int(rx_data2)
             except ValueError:
                 print("ERROR: couldn't get angle DEC")
-                current_coords[1] = command[1] # assume near this value
+                current_coords[1] = command[1] ## assume near this value
                 
-##            BT_SERIAL.writelines(data_to_send)
             BT_SERIAL.writelines('z' + rx_data)
             BT_SERIAL.writelines('y' + rx_data2)
             time.sleep(SERIAL_TXRX_WAIT)
@@ -330,13 +319,11 @@ def send_command(mode, command):
         print("ERROR: error opening a serial port")
         return -1
 
-'''
-This function checks for a received ACK from telescope with a prescribed timeout
-'''
+
 def check_ACK():
+    """Checks for a received ACK from telescope with a prescribed timeout"""
     ack = None
     a=0
-##    BT_SERIAL.read() #CAUTION; EXTRA
     while (ack == None and a < RX_TIMEOUT):
         ack = BT_SERIAL.read()
         a = a + 1
@@ -355,10 +342,19 @@ def check_ACK():
         print('NACK received')
         return 0
     
-'''
-THIS FUNCTION SIMULATES A RESPONSE FROM THE TELESCOPE
-'''
+
 def telescope_sim_response(mode, system_select = 0):
+    """Simulates the telescope response
+    
+    Called if the TESTING variable is defined.
+    
+    Args: 
+        mode: specifies which mode the telescope is in
+        system_select: data pertaining to the mode of operation
+    
+    Returns:
+        Sends an ACK or coordinates as required by the mode of operation.
+    """
     if ((telescope.isOpen()) and (BT_SERIAL.isOpen())):
         bit = telescope.read()
         rx_data = bit
@@ -375,7 +371,6 @@ def telescope_sim_response(mode, system_select = 0):
         elif (not (mode == CALIBRATION)):
             #send default response from telescope
             telescope.writelines(str(SUCCESS_ACK))
-
             
         if mode == POWER_CYCLING:
             global opower_state
@@ -400,7 +395,6 @@ def telescope_sim_response(mode, system_select = 0):
                 telescope.writelines(str(ipower_state))
             elif system_select == 't':
                 tpower_state = 1 
-                #telescope.writelines(str(tpower_state))
 
         elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
             bit = telescope.read()
@@ -422,11 +416,19 @@ def telescope_sim_response(mode, system_select = 0):
             print("sent 38229 (30) in place of: " + str(rx_data2))
 
 
-'''
-THIS FUNCTION OPTIONALLY PROMPTS USER FOR COORDS OR TAKES IN DEGREE VALUES
-AND CONVERTS THEM TO A FORMATTED uint16 TO SEND to TELESCOPE FOR NAVIGATION
-'''
 def convertToUint16Coords(userRA = 0, userDEC = 0):
+    """Converts float coordinates to uint16 encoded value for MSP430 onboard
+    
+    Prompts user for coords if not provided and converts a float coordinate pair 
+    right ascension, declination to uint16 encoded value from -180 to 180
+    
+    Args:
+        userRA: angle of right ascension provided by user
+        userDEC: angle of declination provided by user
+    Returns:
+        coords[ra, dec]: a list coordinate pair of right ascension, declination, 
+                        encoded as a uint16 value
+    """ 
     if (userRA == 0 and (userDEC == 0)):
         print('Please enter angle of right ascension in degrees (RA): ')
         userRA = raw_input()
@@ -448,7 +450,7 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
     convertedDEC = np.uint16(deg_to_16bit(userDEC))
             
     '''
-    optional: convert hrs:min:sec to decimal:
+    #optional: convert hrs:min:sec to decimal:
     A = (hours * 15) + (minutes * 0.25) + (seconds * 0.004166)
     B = ( ABS(Dec_degrees) + (Dec_minutes / 60) + (Dec_seconds / 3600)) * SIGN(Dec_Degrees)
     '''
@@ -461,11 +463,16 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
     coords = [convertedRA, convertedDEC]
     return coords
 
- 
-'''
-CONVERTS DEGREES TO A SCALED VALUE FROM 0 TO 2^DEGREE_RESOLUTION
-'''
+
 def deg_to_16bit(degrees):
+    """Converts float coordinates to uint16 encoded value representing -180 to 180
+    
+    Args:
+        degrees: a float degree value to be encoded
+    
+    Returns:
+        convertedVal: from 0 to 2^16 representing -180 to 180.
+    """
     global DEGREE_RESOLUTION
     convertedVal = 32768 
 
@@ -478,20 +485,25 @@ def deg_to_16bit(degrees):
 
     return convertedVal
 
-'''
-CONVERTS A uint16 SCALED VALUE to degrees
-'''
+
 def uint16_to_deg(uint16Value):
+    """Converts a uint16 encoded degree value to a float value
+    
+    Args:
+        uint16Value: the encoded degree value
+    
+    Returns:
+        convertedDegrees: float value degrees
+    """
     global DEGREE_RESOLUTION
     convertedDegrees = (uint16Value - 2**(DEGREE_RESOLUTION-1)) * 360 / float(2**DEGREE_RESOLUTION)
     if TESTING:
         print('degrees, convertedVal: ' + str(convertedDegrees) + '<-' + str(uint16Value))
     return convertedDegrees
 
-'''
-FUNCTION FOR CALIBRATING THE TELESCOPE'S ORIENTATION SYSTEM
-'''
+
 def calibrate():
+    """Calibrates the telescope's 3 axes"""
     print("Select an axis to calibrate ('e' to exit): \n\
             1. Roll \n\
             2. Pitch \n\
@@ -540,7 +552,7 @@ def calibrate():
 
                     #encode rollCorrection
                     rollCorrection = deg_to_16bit(rollCorrection)
-                    send_command(CALIBRATION, rollCorrection) # scope sends ACK when successful
+                    send_command(CALIBRATION, rollCorrection) #expect ACK if success
                     time.sleep(BT_TXRX_WAIT)
 
                     doneRoll = 1
@@ -567,14 +579,12 @@ def calibrate():
                 return
             
             while (not donePitch):
-
                 print('Adjust pitch? (type degree value or enter if ok)')
 
                 adjustPitch = raw_input()
 
                 if adjustPitch == "":
                     adjustPitch = 0;
-
 
                 print('Correct pitch by ' + str(adjustPitch) + ' degrees? (y/n)' )
 
@@ -606,7 +616,6 @@ def calibrate():
                         print('Calibrated pitch.')
                 else: #'n'
                     print('please reenter pitch correction...')
-
         elif axis_select == '3': # calibrate yaw
             #spins 360deg to calibrate MAG3110 and then uses N heading to point
             #at 0deg relative to Hawken Gallery
@@ -620,7 +629,6 @@ def calibrate():
                 return
 
             while (not doneYaw):
-
                 print('Adjust yaw? (clockwise):')
                 yawCorrection = raw_input()
 
@@ -657,41 +665,27 @@ def calibrate():
                         print('Calibrated Yaw')
                 else: #'n'
                     print('please reenter yaw correction...')
-
-
+                    
         print("Select an axis to calibrate ('e' to exit): \n\
                 1. Roll \n\
                 2. Pitch \n\
                 3. Yaw")
         axis_select = raw_input()
-  
+    
     print("Finished calibration!")
     if TESTING: #clear buffer - maybe remove TESTING and always do this?
         rcvd = BT_SERIAL.readline()
         time.sleep(BT_TXRX_WAIT)
         print("received:" + str(rcvd))
-
     global state
     state = 0
     return
-##    print("Calibration mode\n")
-##    #calibrate here...
-####CAUTION: need to develop calibration algorithm
-##    print("Enter a char to send: \n")
-##    char_to_send = raw_input()
-##
-##    if (send_command(CALIBRATION, char_to_send)):
-##        global finished
-##        finished = 1
-##    else:
-##        return print("Error in sending command")
+
                                                           
-'''
-#THIS FUNCTION IS USED FOR SELECTIVELY POWER CYCLING SUBSYSTEMS
-'''
 def power_cycle():
-    global opower_state # get orientation power state here
-    global ipower_state # get imaging power state here
+    """Function to control states of individual power systems onboard"""
+    global opower_state 
+    global ipower_state
     print("Select a system to power cycle (press 'e' to exit): \n\
                 'p': Toggle power of all subsystems \n\
                 'o': Orientation control \n\
@@ -701,7 +695,6 @@ def power_cycle():
     system_select = raw_input()
 
     while (not(system_select == 'e')):
-
         if system_select == 'p': #POWER CYCLE ALL SUBSYSTEMS
             print("All systems will be toggled now...")
             if (send_command(POWER_CYCLING, system_select) == -1):
@@ -710,15 +703,15 @@ def power_cycle():
             time.sleep(BT_TXRX_WAIT)
 
             ack = None
-            a=0
+            a = 0
             while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
             
             if (a > RX_TIMEOUT):
-                print ("timeout error; a = " + str(a))
+                print("timeout error; a = " + str(a))
 
-            print( "received data: " + str(ack))
+            print("received data: " + str(ack))
 
             if (not (ack == '')):    
                 if (ack == str(SUCCESS_ACK)):
@@ -743,7 +736,7 @@ def power_cycle():
             time.sleep(BT_TXRX_WAIT)
             
             ack = None
-            a=0
+            a = 0
             while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
@@ -775,7 +768,7 @@ def power_cycle():
             time.sleep(BT_TXRX_WAIT)
             
             ack = None
-            a=0
+            a = 0
             while (ack == None and a < RX_TIMEOUT):
                 ack = BT_SERIAL.read()
                 a = a + 1
@@ -863,15 +856,13 @@ def power_cycle():
                 't': Telemetry system \n\
                 'm': reset microcontroller")
         system_select = raw_input()
-
     global state
     state = 0
     return
 
-'''
-#THIS FUNCTION IS USED FOR STEERING THE SCOPE MANUALLY by adjusting the angle
-'''
+
 def delta_steer():
+    """ALlows user to adjust orientation of the telescope by a relative amount"""
     print("Steering mode (press 'e' to return to main menu):\n")
     print(current_coords)
     key = 0
@@ -892,7 +883,7 @@ def delta_steer():
             rightAsc = rightAsc + angleStep
         elif (key == 'a'):
             rightAsc = rightAsc - angleStep
-        elif (key == 'j'):         #else change angleStep size
+        elif (key == 'j'): #else change angleStep size
             angleStep = angleStep * 2
             print('anglestep: ' + str(angleStep))
             
@@ -906,9 +897,8 @@ def delta_steer():
               + "\r")
 
         if (key == ""): 
-            print("\nMove rightAsc: " + str(rightAsc) + ", angleDec: " + str(angleDec) \
-                  + ' (deltas)? (y/n to confirm)')
-            ##draw a typed picture here of relative angleDec and RA if time
+            print("\nMove rightAsc: " + str(rightAsc) + ", angleDec: " + \
+                  str(angleDec) + ' (deltas)? (y/n to confirm)')
 
             decision = 0
 
@@ -922,7 +912,7 @@ def delta_steer():
                 
                 time.sleep(SERIAL_TXRX_WAIT)
                 ack = None
-                a=0
+                a = 0
                 while (ack == None and a < RX_TIMEOUT):
                     ack = BT_SERIAL.read()
                     a = a + 1
@@ -955,10 +945,9 @@ def delta_steer():
                 #retry entry
                 print("Send a new move command: ")
 
-'''             
-#THIS FUNCTION TAKES A POLAR COORDINATE PAIR AND SENDS IT TO THE SCOPE
-'''
+
 def navigate_to():
+    """Allows user to enter a polar coordinate right ascension, declination, to send"""
     print("Navigate to point.....\n(press 'e' to exit):\n")
     angleDec = 0
     rightAsc = 0
@@ -1053,26 +1042,15 @@ def navigate_to():
                 print("Send a new move command: ")
                 
 '''
-THIS FUNCTION SENDS A COMMAND TO THE SCOPE TO SAVE AN IMAGE
-'''
-'''
-def save_image():
-    print("Capturing image...\n")
-    send_command(SAVE, 'x')
-
-    #wait for and receive image save ACKnowledgement
-    acked = None
-    while (acked == None):
-        acked = BT_SERIAL.readline()
-    
-    print("Mission successful = " + acked)
-'''
-
-'''
 SENDS A USER DEFINED CHAR TO DSN BLOCK AND WAITS FOR REPLY
 PRINTS THE RECVD CHAR ONCE RECEIVED
 '''
 def test_DSN():
+    """Sends a user-defined char to DSN block and waits until received back
+    
+    Prints the elapsed time once character is received back.
+    """
+    
     recvd = None
   
     print("sending to DSN...")
@@ -1090,10 +1068,16 @@ def test_DSN():
     print("Received from DSN: " + recvd + ' after ' + str(time2-time1) + ' seconds\n')
     return recvd
 
-'''
-THIS FUNCTION READS AN INTEGER VALUE FROM THE TELESCOPE COMPORT
-'''
+
 def get_coord_from_scope():
+    """Reads an encoded uint16 coordinate from the Bluetooth serial COM port
+    
+    Args: 
+        none
+    
+    Returns:
+        angleCoordinate: integer value encoded angle from telescope
+        """
     bit = BT_SERIAL.read()
     rx_data = bit
     while(not (bit == "") and not (bit == '\n')):
@@ -1114,6 +1098,7 @@ def get_coord_from_scope():
         angleCoordinate = 0 ## reset to 0
 
     return angleCoordinate
+
 '''*********************************************'''        
 '''              INITIALISATIONS                '''
 '''*********************************************'''
@@ -1126,7 +1111,7 @@ if TESTING:
         parity=serial.PARITY_NONE,\
         stopbits=serial.STOPBITS_ONE,\
         bytesize=serial.EIGHTBITS,\
-            timeout=0)              #simulated telescope receiving/sending port (receieves BT_SERIAL.write)
+            timeout=0) #simulated telescope receiving/sending port
 
 #this port is used for communication with the DSN block before sending a command by BT
 DSN_SERIAL = serial.Serial(
@@ -1135,23 +1120,25 @@ DSN_SERIAL = serial.Serial(
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
     bytesize=serial.EIGHTBITS,\
-        timeout=0)              #computer to CP2102 serial port, used for interfacing with the DSN block 10sec delay
+        timeout=0) #computer to CP2102 serial port, used for interfacing with the DSN
 
-#this port is used to pair with the telescope and send commands via the laptop's built in BT
-BT_SERIAL = serial.Serial( #used for testing right now
+#used to pair with the telescope and send commands via the laptop's built in BT
+BT_SERIAL = serial.Serial( 
     port=bluetooth_COM,\
     baudrate=COMS_BAUD,\
     parity=serial.PARITY_NONE,\
     stopbits=serial.STOPBITS_ONE,\
     bytesize=serial.EIGHTBITS,\
-        timeout=0)              #Bluetooth to computer serial port connection, used to transmit and receieve commands from the telescope
+        timeout=0) 
 
 if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
                 
-    print("Computer connected to DSN on port: " + DSN_SERIAL.portstr + ", baudrate: " + str(DSN_SERIAL.baudrate))
-    print("Telescope " + bt_device + " connected to bluetooth via: " + BT_SERIAL.portstr + ", baudrate: " + str(BT_SERIAL.baudrate))
+    print("Computer connected to DSN on port: " + DSN_SERIAL.portstr + ", baudrate: " \
+          + str(DSN_SERIAL.baudrate))
+    print("Telescope " + bt_device + " connected to bluetooth via: " \
+           + BT_SERIAL.portstr + ", baudrate: " + str(BT_SERIAL.baudrate))
     if TESTING:
-        print("telescope simulator connected to " + str(telescope.portstr))
+        print("telescope simulator connected to " + str(telescope.portstr) + ", testing...\n")
 else:
     print("ERROR: Failed to open a serial port")
 
@@ -1162,7 +1149,7 @@ else:
 while True:       
   
     if state == MENU:
-        bootup() ##clears rx_buffer if msp 430 had residual junk data
+        bootup() ##clears rx_buffer if msp 430 sends extra data
         
         #display menu selection and instructions
         print("Menu select: \n\
@@ -1179,7 +1166,6 @@ while True:
             state = MENU
             
     elif state == CALIBRATION:
-        #enter Calibration mode
         calibrate()
 
         data = BT_SERIAL.readline()
@@ -1187,7 +1173,6 @@ while True:
         state = MENU
 
     elif state == POWER_CYCLING:
-        #enable power cycling
         print("Now in power cycling mode: ")
 
         power_cycle()
@@ -1195,7 +1180,6 @@ while True:
         state = MENU
 
     elif state == DELTA_STEER:
-        #enable free steering
         print("Use 'w', 's', 'a', and 'd' keys to steer a relative number of degrees. \n\
                 Use j/k to adjust the step value you wish to change by.")
         delta_steer()
