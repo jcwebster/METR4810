@@ -8,6 +8,7 @@
 TODO:
 - *AFTER HC06 IS RESTARTED ON TELESCOPE,
     MUST READ BUFFER 2X TO CLEAR "+DISC:SUCCESS" AND "OK" MSGS on telescope
+- fix use of parentheses in all while, if statements
 
 STARTUP:
 1. Start Windows and Liclipse, command prompt, or IDLE. Pair with the telescope HC06.
@@ -98,14 +99,14 @@ def bootup():
     a = 0
     data_stream = ""
     data2 = ""
-    if  (BT_SERIAL.isOpen()):
+    if BT_SERIAL.isOpen():
         while a < RX_TIMEOUT:
             data_stream = data_stream + BT_SERIAL.readline() + " "
             if TESTING:
                 data2  = data2 + telescope.readline() + " "
             a = a + 1
 
-        print (data_stream + data2)
+        print(data_stream + data2)
     else:
         print("error: could not connect")
    
@@ -125,13 +126,13 @@ def send_command(mode, command):
         True if transmitted successfully, false otherwise.
     """
     ret_val = 0
-    if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
+    if DSN_SERIAL.isOpen() and BT_SERIAL.isOpen():
 
-        if (mode == DSN_TEST_STATE):
+        if mode == DSN_TEST_STATE:
             test_DSN()
             ret_val = 1
             
-        elif (mode == POWER_CYCLING or mode == SAVE): 
+        elif mode == POWER_CYCLING or mode == SAVE: 
             #send the same command that fnc was passed
             DSN_SERIAL.writelines(str(command))
             time.sleep(SERIAL_TXRX_WAIT)
@@ -148,7 +149,7 @@ def send_command(mode, command):
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
             
-        elif (mode == CALIBRATION):        
+        elif mode == CALIBRATION:        
             #send the same command that fnc was passed
             DSN_SERIAL.writelines(str(command))
             time.sleep(SERIAL_TXRX_WAIT)
@@ -161,7 +162,7 @@ def send_command(mode, command):
 
             #send data that was received back through cp2102
             print(data_to_send + " received from DSN, sending...")
-            if (data_to_send == '32768'):
+            if data_to_send == '32768':
                 if TESTING:
                     print('sending nullCorrection angle to scope')
                 data_to_send = NULLCORRECTION
@@ -170,14 +171,14 @@ def send_command(mode, command):
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
             
-        elif (mode == DELTA_STEER):
+        elif mode == DELTA_STEER:
             global current_coords
             errorCorrected = 0
             
             #add delta command values to current coords
             current_coords[0] = current_coords[0] + command[0]
             current_coords[1] = current_coords[1] + command[1]
-            while (abs(current_coords[0]) > 180):
+            while abs(current_coords[0]) > 180:
                 print("input your desired RA within +/-180:")
                 current_coords[0] = raw_input()
 
@@ -188,7 +189,7 @@ def send_command(mode, command):
                     current_coords[0] = 0
                 errorCorrected = 1
                 
-            while (abs(current_coords[1]) > 90):
+            while abs(current_coords[1]) > 90:
                 print("input your desired DEC within +/-90:")
                 current_coords[1] = raw_input()
 
@@ -217,13 +218,13 @@ def send_command(mode, command):
 
             bit = DSN_SERIAL.read()
             rx_data = bit
-            while(not (bit == "\n") and not (bit == "")):
+            while not (bit == "\n") and not (bit == ""):
                 bit = DSN_SERIAL.read()
                 rx_data = rx_data + str(bit)
 
             bit2 = DSN_SERIAL.read()
             rx_data2 = bit2
-            while(not (bit2 == "\n") and not (bit2 == "")):
+            while not (bit2 == "\n") and not (bit2 == ""):
                 bit2 = DSN_SERIAL.read()
                 rx_data2 = rx_data2 + str(bit2)
 
@@ -246,7 +247,7 @@ def send_command(mode, command):
             time.sleep(SERIAL_TXRX_WAIT)
             ret_val = 1
             
-        elif (mode == NAVIGATE_TO):
+        elif mode == NAVIGATE_TO:
             global current_coords
     
             print("Steering to coords [" + str(command[0]) + ","\
@@ -268,13 +269,13 @@ def send_command(mode, command):
 
             bit = DSN_SERIAL.read()
             rx_data = bit
-            while(not (bit == "\n") and not (bit == "")):
+            while not (bit == "\n") and not (bit == ""):
                 bit = DSN_SERIAL.read()
                 rx_data = rx_data + str(bit)
 
             bit2 = DSN_SERIAL.read()
             rx_data2 = bit2
-            while(not (bit2 == "\n") and not (bit2 == "")):
+            while not (bit2 == "\n") and not (bit2 == ""):
                 bit2 = DSN_SERIAL.read()
                 rx_data2 = rx_data2 + str(bit2)
 
@@ -323,16 +324,16 @@ def send_command(mode, command):
 def check_ACK():
     """Checks for a received ACK from telescope with a prescribed timeout"""
     ack = None
-    a=0
-    while (ack == None and a < RX_TIMEOUT):
+    a = 0
+    while ack == None and a < RX_TIMEOUT:
         ack = BT_SERIAL.read()
         a = a + 1
 
-    if (a > RX_TIMEOUT):
-        print ("timeout error; a = " + str(a))
+    if a > RX_TIMEOUT:
+        print("timeout error; a = " + str(a))
 
-    if (not (ack == '')):    
-        if (ack == str(SUCCESS_ACK)):
+    if not (ack == ''):    
+        if ack == str(SUCCESS_ACK):
             if TESTING:
                 print("ACK received by ground control.\n")
         else:
@@ -355,20 +356,20 @@ def telescope_sim_response(mode, system_select = 0):
     Returns:
         Sends an ACK or coordinates as required by the mode of operation.
     """
-    if ((telescope.isOpen()) and (BT_SERIAL.isOpen())):
+    if telescope.isOpen() and BT_SERIAL.isOpen():
         bit = telescope.read()
         rx_data = bit
-        while(not (bit == "") and not (bit == '\n')):
+        while not (bit == "") and not (bit == '\n'):
             bit = telescope.read()
             rx_data = rx_data + str(bit)
 
         time.sleep(SERIAL_TXRX_WAIT)
         print("telescope received: " + str(rx_data))
 
-        if (mode == SUCCESS_ACK):
+        if mode == SUCCESS_ACK:
             telescope.writelines(str(mode)) 
             print("sent ack")
-        elif (not (mode == CALIBRATION)):
+        elif not (mode == CALIBRATION):
             #send default response from telescope
             telescope.writelines(str(SUCCESS_ACK))
             
@@ -396,10 +397,10 @@ def telescope_sim_response(mode, system_select = 0):
             elif system_select == 't':
                 tpower_state = 1 
 
-        elif (mode == DELTA_STEER) or (mode == NAVIGATE_TO):
+        elif mode == DELTA_STEER or mode == NAVIGATE_TO:
             bit = telescope.read()
             rx_data2 = bit
-            while(not(bit == "") and not (bit == '\n')):
+            while not(bit == "") and not (bit == '\n'):
                 bit = telescope.read()
                 rx_data2 = rx_data2 + str(bit)
             print("and " + str(rx_data2))
@@ -429,7 +430,7 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
         coords[ra, dec]: a list coordinate pair of right ascension, declination, 
                         encoded as a uint16 value
     """ 
-    if (userRA == 0 and (userDEC == 0)):
+    if userRA == 0 and userDEC == 0:
         print('Please enter angle of right ascension in degrees (RA): ')
         userRA = raw_input()
         try:
@@ -444,7 +445,6 @@ def convertToUint16Coords(userRA = 0, userDEC = 0):
         except ValueError:
             userDEC = 0;
             print("ERROR: not a valid number")
-
 
     convertedRA = np.uint16(deg_to_16bit(userRA))
     convertedDEC = np.uint16(deg_to_16bit(userDEC))
@@ -476,10 +476,11 @@ def deg_to_16bit(degrees):
     global DEGREE_RESOLUTION
     convertedVal = 32768 
 
-    if (abs(degrees) > 180):
+    if abs(degrees) > 180:
         print("ERROR: Degree value must be within +/- 180 degrees or within +/-90 for declination.")
  
     convertedVal = int((2**DEGREE_RESOLUTION)/360 * degrees + (2**(DEGREE_RESOLUTION-1)))
+    
     if TESTING:
         print('degrees, convertedVal: ' + str(degrees) + '-> ' + str(convertedVal))
 
@@ -497,6 +498,7 @@ def uint16_to_deg(uint16Value):
     """
     global DEGREE_RESOLUTION
     convertedDegrees = (uint16Value - 2**(DEGREE_RESOLUTION-1)) * 360 / float(2**DEGREE_RESOLUTION)
+    
     if TESTING:
         print('degrees, convertedVal: ' + str(convertedDegrees) + '<-' + str(uint16Value))
     return convertedDegrees
@@ -510,7 +512,7 @@ def calibrate():
             3. Yaw")
     axis_select = raw_input()
 
-    while (not(axis_select == 'e')):
+    while not(axis_select == 'e'):
         if axis_select == '1': #calibrate roll
             print('Calibrating roll...')
             doneRoll = 0
@@ -518,11 +520,11 @@ def calibrate():
             print("Telescope moving yaw right in 10...")
             send_command(CALIBRATION, CALIBRATE_ROLL)
             time.sleep(BT_TXRX_WAIT)
-            if (not check_ACK()):
+            if not check_ACK():
                 print ('ERROR:  - no ack. Returning to main menu.')
                 return
             
-            while (not doneRoll):
+            while not doneRoll:
                 '''
                     response of telescope will either autonomously move yaw right and
                     measure angle to roll, OR user will have to trace the path of motion
@@ -544,12 +546,11 @@ def calibrate():
 
                 decision = raw_input()
 
-                while (not(decision == 'y') and not(decision == 'n')):
-                    print("iERROR: nvalid input")
+                while not(decision == 'y') and not(decision == 'n'):
+                    print("ERROR: invalid input")
                     decision = raw_input()
 
-                if (decision == 'y'):
-
+                if decision == 'y':
                     #encode rollCorrection
                     rollCorrection = deg_to_16bit(rollCorrection)
                     send_command(CALIBRATION, rollCorrection) #expect ACK if success
@@ -557,7 +558,7 @@ def calibrate():
 
                     doneRoll = 1
 
-                    if (not check_ACK()):
+                    if not check_ACK():
                         print ('error - no ack. Returning to main menu.')
                         return
                     else:
@@ -574,11 +575,11 @@ def calibrate():
             print('Telescope steering to vertical... \n\r ')
             send_command(CALIBRATION, CALIBRATE_PITCH) #move up then come down to 0
             time.sleep(BT_TXRX_WAIT)
-            if (not check_ACK()):
+            if not check_ACK():
                 print ('ERROR:  - no ack. Returning to main menu.')
                 return
             
-            while (not donePitch):
+            while not donePitch:
                 print('Adjust pitch? (type degree value or enter if ok)')
 
                 adjustPitch = raw_input()
@@ -596,12 +597,11 @@ def calibrate():
 
                 decision = raw_input()
 
-                while (not(decision == 'y') and not(decision == 'n')):
+                while not(decision == 'y') and not(decision == 'n'):
                     print("invalid input")
                     decision = raw_input()
 
                 if (decision == 'y'):
-
                     #encode adjustPitch
                     adjustPitch = deg_to_16bit(adjustPitch)
                     send_command(CALIBRATION, adjustPitch) # scope sends ACK when successful
@@ -609,7 +609,7 @@ def calibrate():
 
                     donePitch = 1
 
-                    if (not check_ACK()):
+                    if not check_ACK():
                         print ('error - no ack. Returning to main menu.')
                         return
                     else:
@@ -624,11 +624,11 @@ def calibrate():
 
             send_command(CALIBRATION, CALIBRATE_YAW)
             time.sleep(BT_TXRX_WAIT)
-            if (not check_ACK()):
+            if not check_ACK():
                 print ('ERROR:  - no ack. Returning to main menu.')
                 return
 
-            while (not doneYaw):
+            while not doneYaw:
                 print('Adjust yaw? (clockwise):')
                 yawCorrection = raw_input()
 
@@ -645,20 +645,20 @@ def calibrate():
 
                 decision = raw_input()
 
-                while (not(decision == 'y') and not(decision == 'n')):
+                while not(decision == 'y') and not(decision == 'n'):
                     print("invalid input")
                     decision = raw_input()
 
-                if (decision == 'y'):
+                if decision == 'y':
 
                     #encode yawCorrection
                     yawCorrection = deg_to_16bit(yawCorrection)
-                    send_command(CALIBRATION, yawCorrection) # scope sends ACK when successful
+                    send_command(CALIBRATION, yawCorrection) # expect ACK on success
                     time.sleep(BT_TXRX_WAIT)
 
                     doneYaw = 1
 
-                    if (not check_ACK()):
+                    if not check_ACK():
                         print ('error - no ack. Returning to main menu.')
                         return
                     else:
@@ -673,6 +673,7 @@ def calibrate():
         axis_select = raw_input()
     
     print("Finished calibration!")
+    
     if TESTING: #clear buffer - maybe remove TESTING and always do this?
         rcvd = BT_SERIAL.readline()
         time.sleep(BT_TXRX_WAIT)
@@ -694,17 +695,17 @@ def power_cycle():
                 'm': reset microcontroller")
     system_select = raw_input()
 
-    while (not(system_select == 'e')):
+    while not(system_select == 'e'):
         if system_select == 'p': #POWER CYCLE ALL SUBSYSTEMS
             print("All systems will be toggled now...")
-            if (send_command(POWER_CYCLING, system_select) == -1):
+            if send_command(POWER_CYCLING, system_select) == -1:
                 print("ERROR: error\n")
 
             time.sleep(BT_TXRX_WAIT)
 
             ack = None
             a = 0
-            while (ack == None and a < RX_TIMEOUT):
+            while ack == None and a < RX_TIMEOUT:
                 ack = BT_SERIAL.read()
                 a = a + 1
             
@@ -713,8 +714,8 @@ def power_cycle():
 
             print("received data: " + str(ack))
 
-            if (not (ack == '')):    
-                if (ack == str(SUCCESS_ACK)):
+            if not (ack == ''):    
+                if ack == str(SUCCESS_ACK):
                     print("All subsystems power cycled, success\n")
                     try:
                         success = int(BT_SERIAL.read())
@@ -731,21 +732,21 @@ def power_cycle():
         elif system_select == 'o': #TOGGLE ORIENTATION CONTROL POWER
             print("Toggling orientation control system power...\n")
 
-            if (send_command(POWER_CYCLING, system_select) == -1):
+            if send_command(POWER_CYCLING, system_select) == -1:
                 print("error\n")
             time.sleep(BT_TXRX_WAIT)
             
             ack = None
             a = 0
-            while (ack == None and a < RX_TIMEOUT):
+            while ack == None and a < RX_TIMEOUT:
                 ack = BT_SERIAL.read()
                 a = a + 1
 
-            if (a > RX_TIMEOUT):
+            if a > RX_TIMEOUT:
                 print ("timeout error; a = " + str(a))
 
-            if (not (ack == '')):    
-                if (ack == str(SUCCESS_ACK)):
+            if not (ack == ''):    
+                if ack == str(SUCCESS_ACK):
                     print("Orientation control power cycled, success\n")
                     state_received = None
 
@@ -763,21 +764,21 @@ def power_cycle():
         elif system_select == 'i': #TOGGLE IMAGING SUBSYSTEM POWER
             print("Toggling imaging system power...\n")
 
-            if (send_command(POWER_CYCLING, system_select) == -1):
+            if send_command(POWER_CYCLING, system_select) == -1:
                 print("ERROR: error\n")
             time.sleep(BT_TXRX_WAIT)
             
             ack = None
             a = 0
-            while (ack == None and a < RX_TIMEOUT):
+            while ack == None and a < RX_TIMEOUT:
                 ack = BT_SERIAL.read()
                 a = a + 1
 
-            if (a > RX_TIMEOUT):
+            if a > RX_TIMEOUT:
                 print ("ERROR: timeout error; a = " + str(a))
 
-            if (not (ack == '')):    
-                if (ack == str(SUCCESS_ACK)):
+            if not (ack == ''):    
+                if ack == str(SUCCESS_ACK):
                     print("Imaging control power cycled, success\n")
                     state_received = None
 
@@ -794,26 +795,26 @@ def power_cycle():
         elif system_select == 't': #TOGGLE TELEMETRY SUBSYSTEM POWER
             print("Toggling telemetry system power...\n")
 
-            if (send_command(POWER_CYCLING, system_select) == -1):
+            if send_command(POWER_CYCLING, system_select) == -1:
                 print("ERROR: error\n")
             time.sleep(BT_TXRX_WAIT)
 
             #get ack before telemetry shuts off
             ack = None
             a=0
-            while (ack == None and a < RX_TIMEOUT):
+            while ack == None and a < RX_TIMEOUT:
                 ack = BT_SERIAL.read()
                 a = a + 1
 
-            if (a > RX_TIMEOUT):
+            if a > RX_TIMEOUT:
                 print ("ERROR: timeout error; a = " + str(a))
 
-            if (not (ack == '')):    
-                if (ack == str(SUCCESS_ACK)):
+            if not (ack == ''):    
+                if ack == str(SUCCESS_ACK):
                     print("ACK recvd. Telemetry disconnecting, reconnecting after 10..\n")
                     BT_SERIAL.close() # close the bluetooth connection
 
-                    for x in xrange(0, 4): # sleep 4 seconds
+                    for x in xrange(0, 6): # sleep 5 seconds
                         print (str(x) + '...')
                         time.sleep(1)
 
@@ -839,7 +840,7 @@ def power_cycle():
         elif system_select == 'm': #RESET MICROCONTROLLER 
             print("RESETTING MSP430...\n")
 
-            if (send_command(POWER_CYCLING, system_select) == -1):
+            if send_command(POWER_CYCLING, system_select) == -1:
                 print("ERROR: error\n")
 
             ##uC RESTARTS, USE BOOTUP READ LINE FUNCTION
@@ -872,22 +873,21 @@ def delta_steer():
     done = 0
     
     #press a key to count up or down, j\k to adjust increment size...
-    while ((not (key == 'e')) and (not done)):
+    while not (key == 'e') and not done:
         key = raw_input()
        
-        if (key == 'w'):
+        if key == 'w':
             angleDec = angleDec + angleStep
-        elif (key == 's'):
+        elif key == 's':
             angleDec = angleDec - angleStep
-        elif (key == 'd'):
+        elif key == 'd':
             rightAsc = rightAsc + angleStep
-        elif (key == 'a'):
+        elif key == 'a':
             rightAsc = rightAsc - angleStep
-        elif (key == 'j'): #else change angleStep size
+        elif key == 'j': #else change angleStep size
             angleStep = angleStep * 2
             print('anglestep: ' + str(angleStep))
-            
-        elif (key == 'k'):
+        elif key == 'k':
             angleStep = angleStep / 2
             if angleStep == 0:
                 angleStep = 0.5
@@ -896,32 +896,32 @@ def delta_steer():
         print("rightAsc: " + str(rightAsc) + ", angleDec: " + str(angleDec) \
               + "\r")
 
-        if (key == ""): 
+        if key == "": 
             print("\nMove rightAsc: " + str(rightAsc) + ", angleDec: " + \
                   str(angleDec) + ' (deltas)? (y/n to confirm)')
 
             decision = 0
 
-            while (not(decision == 'y') and not (decision == 'n')):
+            while not(decision == 'y') and not (decision == 'n'):
                 decision = raw_input()
 
-            if (decision == 'y'):
+            if decision == 'y':
                 coords = [rightAsc, angleDec]
-                if (send_command(DELTA_STEER, coords) == -1): 
+                if send_command(DELTA_STEER, coords) == -1: 
                     print("error\n")
                 
                 time.sleep(SERIAL_TXRX_WAIT)
                 ack = None
                 a = 0
-                while (ack == None and a < RX_TIMEOUT):
+                while ack == None and a < RX_TIMEOUT:
                     ack = BT_SERIAL.read()
                     a = a + 1
 
-                if (a > RX_TIMEOUT):
+                if a > RX_TIMEOUT:
                     print ("timeout error; a = " + str(a))
 
-                if (not (ack == '')):    
-                    if (ack == str(SUCCESS_ACK)):
+                if not (ack == ''):    
+                    if ack == str(SUCCESS_ACK):
                         print("DELTA_STEER steer successful\n")
 
                         returned_ra = get_coord_from_scope()
@@ -941,7 +941,7 @@ def delta_steer():
                 else:
                     print('ERROR: nack recvd')
                     
-            elif (decision == 'n'):
+            elif decision == 'n':
                 #retry entry
                 print("Send a new move command: ")
 
@@ -955,7 +955,7 @@ def navigate_to():
     
     done = 0
 
-    while (not (key == 'e')):
+    while not (key == 'e'):
         ra = 0
         dec = 0
         
@@ -964,7 +964,7 @@ def navigate_to():
         print("Enter angle of declination")
         dec = raw_input()
 
-        if (ra == 'e' or dec == 'e'):
+        if ra == 'e' or dec == 'e':
             key = 'e'
         else:
             try:
@@ -973,7 +973,7 @@ def navigate_to():
                 print("could not convert angle to float")
                 ra = 181
                 
-            while (abs(ra) > 180):
+            while abs(ra) > 180:
                 print("Enter angle of right ascension: ")
                 ra = raw_input()
                 try:
@@ -987,7 +987,7 @@ def navigate_to():
                 print("could not convert dec to float")
                 dec = 91
                 
-            while (abs(dec) > 90):
+            while abs(dec) > 90:
                 print("Enter angle of declination: ")
                 dec = raw_input()
                 try:
@@ -1002,25 +1002,24 @@ def navigate_to():
 
             decision = 0
 
-            while (not(decision == 'y') and not(decision == 'n')):
+            while not(decision == 'y') and not(decision == 'n'):
                 decision = raw_input()
 
-            if (decision == 'y'):
-                if (send_command(NAVIGATE_TO, destination) == -1): 
+            if decision == 'y':
+                if send_command(NAVIGATE_TO, destination) == -1: 
                     print("ERROR: error\n")
                 
                 ack = None
-                a=0
-                while (ack == None and a < RX_TIMEOUT):
+                a = 0
+                while ack == None and a < RX_TIMEOUT:
                     ack = BT_SERIAL.read()
                     a = a + 1
 
-                if (a > RX_TIMEOUT):
+                if a > RX_TIMEOUT:
                     print ("ERROR: timeout error; a = " + str(a))
 
-                if (not (ack == '')):    
-                    if (ack == str(SUCCESS_ACK)):
-
+                if not (ack == ''):    
+                    if ack == str(SUCCESS_ACK):
                         print("Navigate to, successful\n")
 
                         returned_ra = get_coord_from_scope()
@@ -1037,7 +1036,7 @@ def navigate_to():
 
                 key = 'e' #signal done
                     
-            elif (decision == 'n'):
+            elif decision == 'n':
                 #retry entry
                 print("Send a new move command: ")
                 
@@ -1080,7 +1079,7 @@ def get_coord_from_scope():
         """
     bit = BT_SERIAL.read()
     rx_data = bit
-    while(not (bit == "") and not (bit == '\n')):
+    while not (bit == "") and not (bit == '\n'):
         bit = BT_SERIAL.read()
         rx_data = rx_data + str(bit)
 
@@ -1131,14 +1130,15 @@ BT_SERIAL = serial.Serial(
     bytesize=serial.EIGHTBITS,\
         timeout=0) 
 
-if ((DSN_SERIAL.isOpen()) and (BT_SERIAL.isOpen())):
-                
+if DSN_SERIAL.isOpen() and BT_SERIAL.isOpen():          
     print("Computer connected to DSN on port: " + DSN_SERIAL.portstr + ", baudrate: " \
           + str(DSN_SERIAL.baudrate))
     print("Telescope " + bt_device + " connected to bluetooth via: " \
            + BT_SERIAL.portstr + ", baudrate: " + str(BT_SERIAL.baudrate))
     if TESTING:
-        print("telescope simulator connected to " + str(telescope.portstr) + ", testing...\n")
+        print("telescope simulator connected to " + str(telescope.portstr) \
+              + ", testing...\n")
+        
 else:
     print("ERROR: Failed to open a serial port")
 
