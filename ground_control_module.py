@@ -322,7 +322,14 @@ def send_command(mode, command):
 
 
 def check_ACK():
-    """Checks for a received ACK from telescope with a prescribed timeout"""
+    """Checks for a received ACK from telescope with a prescribed timeout
+    
+    Args:
+        none
+        
+    Returns:
+        1 on success, 0 if NACK
+    """
     ack = None
     a = 0
     while ack == None and a < RX_TIMEOUT:
@@ -330,17 +337,19 @@ def check_ACK():
         a = a + 1
 
     if a > RX_TIMEOUT:
-        print("timeout error; a = " + str(a))
+        print("ERROR: timeout error; a = " + str(a))
+        return 0
 
     if not (ack == ''):    
         if ack == str(SUCCESS_ACK):
             if TESTING:
-                print("ACK received by ground control.\n")
+                print("ACK received.\n")
+            return 1
         else:
-            print("improper ack received: " + ack)
-        return 1
+            print("ERROR: improper ack received: " + ack) 
+            return 0
     else:
-        print('NACK received')
+        print('ERROR: NACK received')
         return 0
     
 
@@ -703,64 +712,39 @@ def power_cycle():
 
             time.sleep(BT_TXRX_WAIT)
 
-            ack = None
-            a = 0
-            while ack == None and a < RX_TIMEOUT:
-                ack = BT_SERIAL.read()
-                a = a + 1
-            
-            if (a > RX_TIMEOUT):
-                print("timeout error; a = " + str(a))
+            if check_ACK():
+                print("All subsystems power cycled, success\n")
+                try:
+                    success = int(BT_SERIAL.read())
+                    opower_state = int(1 - opower_state)
+                    ipower_state = int(1 - ipower_state)
 
-            print("received data: " + str(ack))
-
-            if not (ack == ''):    
-                if ack == str(SUCCESS_ACK):
-                    print("All subsystems power cycled, success\n")
-                    try:
-                        success = int(BT_SERIAL.read())
-                        opower_state = int(1 - opower_state)
-                        ipower_state = int(1 - ipower_state)
-
-                    except ValueError:
-                        success = 0
-                    print("power cycle success: " + str(success))
-                else:
-                    print("ERROR: Incorrect message received from bluetooth")
+                except ValueError:
+                    success = 0
+                print("power cycle success: " + str(success))
             else:
-                print('ERROR: NACK received')
+                print("ERROR: Incorrect message received from bluetooth")
+            
         elif system_select == 'o': #TOGGLE ORIENTATION CONTROL POWER
             print("Toggling orientation control system power...\n")
 
             if send_command(POWER_CYCLING, system_select) == -1:
                 print("error\n")
             time.sleep(BT_TXRX_WAIT)
-            
-            ack = None
-            a = 0
-            while ack == None and a < RX_TIMEOUT:
-                ack = BT_SERIAL.read()
-                a = a + 1
+        
+            if check_ACK() == 1:
+                print("Orientation control power cycled, success\n")
+                state_received = None
 
-            if a > RX_TIMEOUT:
-                print ("timeout error; a = " + str(a))
-
-            if not (ack == ''):    
-                if ack == str(SUCCESS_ACK):
-                    print("Orientation control power cycled, success\n")
-                    state_received = None
-
-                    while (state_received == None):
-                        try:
-                            state_received = int(BT_SERIAL.read())
-                        except ValueError:
-                            state_received = 0
-                    opower_state = state_received
-                else:
-                    print("ERROR: Orientation system power did not send SUCCESS_ACK")
+                while (state_received == None):
+                    try:
+                        state_received = int(BT_SERIAL.read())
+                    except ValueError:
+                        state_received = 0
+                opower_state = state_received
             else:
-                print('ERROR: NACK received')
-                
+                print("ERROR: Orientation system power did not send SUCCESS_ACK")
+            
         elif system_select == 'i': #TOGGLE IMAGING SUBSYSTEM POWER
             print("Toggling imaging system power...\n")
 
@@ -768,30 +752,20 @@ def power_cycle():
                 print("ERROR: error\n")
             time.sleep(BT_TXRX_WAIT)
             
-            ack = None
-            a = 0
-            while ack == None and a < RX_TIMEOUT:
-                ack = BT_SERIAL.read()
-                a = a + 1
+            if check_ACK() == 1:
+            
+                print("Imaging control power cycled, success\n")
+                state_received = None
 
-            if a > RX_TIMEOUT:
-                print ("ERROR: timeout error; a = " + str(a))
-
-            if not (ack == ''):    
-                if ack == str(SUCCESS_ACK):
-                    print("Imaging control power cycled, success\n")
-                    state_received = None
-
-                    while (state_received == None):
-                        try:
-                            state_received = int(BT_SERIAL.read())
-                        except ValueError:
-                            state_received = 0
-                    ipower_state = state_received
-                else:
-                    print("ERROR: Imaging system power did not send SUCCESS_ACK")
+                while (state_received == None):
+                    try:
+                        state_received = int(BT_SERIAL.read())
+                    except ValueError:
+                        state_received = 0
+                ipower_state = state_received
             else:
-                print('ERROR: NACK receieved')
+                print("ERROR: Imaging system power did not send SUCCESS_ACK")
+           
         elif system_select == 't': #TOGGLE TELEMETRY SUBSYSTEM POWER
             print("Toggling telemetry system power...\n")
 
@@ -800,43 +774,33 @@ def power_cycle():
             time.sleep(BT_TXRX_WAIT)
 
             #get ack before telemetry shuts off
-            ack = None
-            a=0
-            while ack == None and a < RX_TIMEOUT:
-                ack = BT_SERIAL.read()
-                a = a + 1
+  
+            if check_ACK() == 1:
+                print("ACK recvd. Telemetry disconnecting, reconnecting after 10..\n")
+                BT_SERIAL.close() # close the bluetooth connection
 
-            if a > RX_TIMEOUT:
-                print ("ERROR: timeout error; a = " + str(a))
+                for x in xrange(0, 6): # sleep 5 seconds
+                    print (str(x) + '...')
+                    time.sleep(1)
 
-            if not (ack == ''):    
-                if ack == str(SUCCESS_ACK):
-                    print("ACK recvd. Telemetry disconnecting, reconnecting after 10..\n")
-                    BT_SERIAL.close() # close the bluetooth connection
+                global BT_SERIAL
+                ## try to re-establish BT connection after time.sleep()
+                BT_SERIAL = serial.Serial( 
+                    port=bluetooth_COM,\
+                    baudrate=COMS_BAUD,\
+                    parity=serial.PARITY_NONE,\
+                    stopbits=serial.STOPBITS_ONE,\
+                    bytesize=serial.EIGHTBITS,\
+                        timeout=0)   
 
-                    for x in xrange(0, 6): # sleep 5 seconds
-                        print (str(x) + '...')
-                        time.sleep(1)
-
-                    global BT_SERIAL
-                    ## try to re-establish BT connection after time.sleep()
-                    BT_SERIAL = serial.Serial( 
-                        port=bluetooth_COM,\
-                        baudrate=COMS_BAUD,\
-                        parity=serial.PARITY_NONE,\
-                        stopbits=serial.STOPBITS_ONE,\
-                        bytesize=serial.EIGHTBITS,\
-                            timeout=0)   
-
-                    if TESTING:
-                        time.sleep(2)
-                        telescope.readline()
-                        telescope.readline()
-                else:
-                    print("ERROR: Telemetry system power toggle did not send \
-                    SUCCESS_ACK, keeping connection open")
+                if TESTING:
+                    time.sleep(2)
+                    telescope.readline()
+                    telescope.readline()
             else:
-                print('ERROR: NACK received')
+                print("ERROR: Telemetry system power toggle did not send \
+                SUCCESS_ACK, keeping connection open")
+
         elif system_select == 'm': #RESET MICROCONTROLLER 
             print("RESETTING MSP430...\n")
 
@@ -911,35 +875,24 @@ def delta_steer():
                     print("error\n")
                 
                 time.sleep(SERIAL_TXRX_WAIT)
-                ack = None
-                a = 0
-                while ack == None and a < RX_TIMEOUT:
-                    ack = BT_SERIAL.read()
-                    a = a + 1
+                
+                if check_ACK() == 1:
+                    print("DELTA_STEER steer successful\n")
 
-                if a > RX_TIMEOUT:
-                    print ("timeout error; a = " + str(a))
+                    returned_ra = get_coord_from_scope()
+                    current_coords[0] = uint16_to_deg(returned_ra)
 
-                if not (ack == ''):    
-                    if ack == str(SUCCESS_ACK):
-                        print("DELTA_STEER steer successful\n")
-
-                        returned_ra = get_coord_from_scope()
-                        current_coords[0] = uint16_to_deg(returned_ra)
-
-                        returned_dec = get_coord_from_scope()
-                        current_coords[1] = uint16_to_deg(returned_dec)
-                        print("current_coords (ra, dec): ")
-                        print(current_coords)
-                        return
-                    else:
-                        print("ERROR: DELTA_STEER steer did not rcv SUCCESS_ACK")
-                        print("Returning to Menu")
-                        global state
-                        state = 0
-                        return
+                    returned_dec = get_coord_from_scope()
+                    current_coords[1] = uint16_to_deg(returned_dec)
+                    print("current_coords (ra, dec): ")
+                    print(current_coords)
+                
                 else:
-                    print('ERROR: nack recvd')
+                    print("ERROR: DELTA_STEER steer did not rcv SUCCESS_ACK")
+                    print("Returning to Menu")
+                    global state
+                    state = 0
+                return
                     
             elif decision == 'n':
                 #retry entry
@@ -1009,31 +962,16 @@ def navigate_to():
                 if send_command(NAVIGATE_TO, destination) == -1: 
                     print("ERROR: error\n")
                 
-                ack = None
-                a = 0
-                while ack == None and a < RX_TIMEOUT:
-                    ack = BT_SERIAL.read()
-                    a = a + 1
+                if check_ACK() == 1:
+                    print("Navigate to, successful\n")
 
-                if a > RX_TIMEOUT:
-                    print ("ERROR: timeout error; a = " + str(a))
+                    returned_ra = get_coord_from_scope()
+                    current_coords[0] = uint16_to_deg(returned_ra)
 
-                if not (ack == ''):    
-                    if ack == str(SUCCESS_ACK):
-                        print("Navigate to, successful\n")
-
-                        returned_ra = get_coord_from_scope()
-                        current_coords[0] = uint16_to_deg(returned_ra)
-
-                        returned_dec = get_coord_from_scope()
-                        current_coords[1] = uint16_to_deg(returned_dec)
-                        print("MOVED TO " + str(current_coords))
-
-                    else:
-                        print("ERROR: Incorrect message received from bluetooth")
-                else:
-                    print('ERROR: NACK received')
-
+                    returned_dec = get_coord_from_scope()
+                    current_coords[1] = uint16_to_deg(returned_dec)
+                    print("MOVED TO " + str(current_coords))
+                
                 key = 'e' #signal done
                     
             elif decision == 'n':
